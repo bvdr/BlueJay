@@ -131,12 +131,13 @@ async function initOpenAI() {
 // Ask OpenAI if the input is a terminal command
 async function isTerminalCommand(openai, userInput) {
   try {
+    // Use debug log wrapper function
     const response = await openai.chat.completions.create({
       model: preferences.defaultModel,
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that determines if a user query is asking for a terminal command. If it is, respond ONLY with the exact command to run, with no additional text or explanation. If not, respond with "NOT_A_COMMAND".'
+          content: 'You are a helpful assistant that runs in a terminal on a MAC OS/LINUX. Your primary goal is to interpret user input as terminal commands whenever possible. Be very liberal in your interpretation - if there is any way the user\'s request could be fulfilled with a terminal command, provide that command. Even if the request is ambiguous or could be interpreted in multiple ways, prefer to respond with a command rather than "NOT_A_COMMAND". If you provide a command, respond ONLY with the command to run, with no additional text or explanation. Only respond with "NOT_A_COMMAND" if the user\'s input is clearly not related to any possible terminal operation or file system task.'
         },
         {
           role: 'user',
@@ -147,7 +148,6 @@ async function isTerminalCommand(openai, userInput) {
     });
 
     const content = response.choices[0].message.content;
-
     if (content.includes('NOT_A_COMMAND')) {
       return { isCommand: false, command: null };
     } else {
