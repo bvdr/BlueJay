@@ -17,10 +17,20 @@ const inquirer = require('inquirer');
 const chalk = require('chalk');
 const ora = require('ora');
 let colorize;
-const { exec } = require('child_process');
+const { exec, spawn } = require('child_process');
+
+// Setup colorize function (defined early for error handling)
+colorize = {
+  blue: text => chalk.blue(text),
+  green: text => chalk.green(text),
+  yellow: text => chalk.yellow(text),
+  red: text => chalk.red(text),
+  cyan: text => chalk.cyan(text)
+};
 
 // Paths for configuration files
-const PREFERENCES_FILE_PATH = path.join(os.homedir(), '.j-preferences');
+const LOCAL_PREFERENCES_FILE_PATH = path.join(process.cwd(), '.j-preferences');
+const HOME_PREFERENCES_FILE_PATH = path.join(os.homedir(), '.j-preferences');
 
 // Default preferences
 const DEFAULT_PREFERENCES = {
@@ -28,18 +38,27 @@ const DEFAULT_PREFERENCES = {
   showCommandConfirmation: true,
   colorOutput: true,
   saveCommandHistory: true,
-  maxHistoryItems: 100
+  maxHistoryItems: 100,
+  debug: false
 };
 
 // Load preferences
 function loadPreferences() {
   try {
-    if (fs.existsSync(PREFERENCES_FILE_PATH)) {
-      const preferencesData = fs.readFileSync(PREFERENCES_FILE_PATH, 'utf8');
+    // First try to load from current directory
+    if (fs.existsSync(LOCAL_PREFERENCES_FILE_PATH)) {
+      const preferencesData = fs.readFileSync(LOCAL_PREFERENCES_FILE_PATH, 'utf8');
       return JSON.parse(preferencesData);
-    } else {
-      // Create default preferences file if it doesn't exist
-      fs.writeFileSync(PREFERENCES_FILE_PATH, JSON.stringify(DEFAULT_PREFERENCES, null, 2));
+    }
+    // Then try to load from home directory
+    else if (fs.existsSync(HOME_PREFERENCES_FILE_PATH)) {
+      // We can't use debugLog here because preferences aren't loaded yet
+      const preferencesData = fs.readFileSync(HOME_PREFERENCES_FILE_PATH, 'utf8');
+      return JSON.parse(preferencesData);
+    }
+    // If no file exists, create one in the home directory
+    else {
+      fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(DEFAULT_PREFERENCES, null, 2));
       return DEFAULT_PREFERENCES;
     }
   } catch (error) {
@@ -51,22 +70,23 @@ function loadPreferences() {
 // Get preferences
 const preferences = loadPreferences();
 
-// Setup colorize function based on preferences
-colorize = preferences.colorOutput
-  ? {
-      blue: text => chalk.blue(text),
-      green: text => chalk.green(text),
-      yellow: text => chalk.yellow(text),
-      red: text => chalk.red(text),
-      cyan: text => chalk.cyan(text)
-    }
-  : {
-      blue: text => text,
-      green: text => text,
-      yellow: text => text,
-      red: text => text,
-      cyan: text => text
-    };
+// Update colorize function based on preferences
+if (!preferences.colorOutput) {
+  colorize = {
+    blue: text => text,
+    green: text => text,
+    yellow: text => text,
+    red: text => text,
+    cyan: text => text
+  };
+}
+
+// Debug log wrapper function
+function debugLog(message, color = 'blue') {
+  if (preferences.debug) {
+    console.log(colorize[color](`DEBUG: ${message}`));
+  }
+}
 
 // Check if OpenAI API key exists, if not prompt for it
 async function checkOpenAIKey() {
@@ -140,18 +160,78 @@ async function isTerminalCommand(openai, userInput) {
   }
 }
 
+// Check if a command is likely to be interactive
+function isInteractiveCommand(command) {
+  if (!command) return false;
+
+  // Method 1: Check against known interactive commands
+  const knownInteractiveCommands = ['vim', 'nano', 'emacs', 'less', 'more', 'top', 'htop', 'ssh', 'mysql', 'psql', 'python', 'node'];
+  const commandName = command.split(' ')[0];
+
+  // Method 2: Check for command flags that suggest interactivity
+  const interactiveFlags = ['-i', '--interactive'];
+  const hasInteractiveFlag = command.split(' ').some(part => interactiveFlags.includes(part));
+
+  // Method 3: Check for commands that typically open a new interface or prompt
+  const hasEditorPattern = /\b(edit|editor)\b/i.test(command);
+
+  return knownInteractiveCommands.some(cmd => commandName === cmd) ||
+         hasInteractiveFlag ||
+         hasEditorPattern;
+}
+
 // Execute a terminal command
+// We use spawn for all commands because:
+// 1. It provides better handling of interactive commands that require user input
+// 2. It allows for streaming output in real-time
+// 3. It gives more control over stdio streams
+// 4. It's more reliable for long-running processes
 function executeCommand(command) {
   return new Promise((resolve, reject) => {
-    exec(command, (error, stdout, stderr) => {
-      if (error) {
-        reject(`Error: ${error.message}`);
-        return;
+    // Parse the command into command name and arguments
+    const parts = command.split(' ');
+    const cmd = parts[0];
+    const args = parts.slice(1);
+
+    // Check if the command is likely to be interactive
+    const interactive = isInteractiveCommand(command);
+
+    // Configure spawn options based on whether the command is interactive
+    const spawnOptions = {
+      shell: true,
+      // For interactive commands: inherit all stdio to allow user interaction
+      // For non-interactive commands: only inherit stderr, capture stdout
+      stdio: interactive ? 'inherit' : ['inherit', 'pipe', 'inherit']
+    };
+
+    // Use debug log wrapper function
+    debugLog(`Executing command "${command}"`)
+
+    // Use spawn for all commands with appropriate configuration
+    const childProcess = spawn(cmd, args, spawnOptions);
+
+    // For non-interactive commands, we need to capture stdout
+    let stdout = '';
+    if (!interactive && childProcess.stdout) {
+      childProcess.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+    }
+
+    childProcess.on('close', (code) => {
+      if (code === 0) {
+        if (interactive) {
+          resolve('Interactive command completed successfully');
+        } else {
+          resolve(stdout);
+        }
+      } else {
+        reject(`Command exited with code ${code}`);
       }
-      if (stderr) {
-        console.log(colorize.yellow('Command stderr:'), stderr);
-      }
-      resolve(stdout);
+    });
+
+    childProcess.on('error', (error) => {
+      reject(`Error: ${error.message}`);
     });
   });
 }
@@ -202,11 +282,17 @@ async function main() {
       }
 
       if (shouldExecute) {
-        console.log(colorize.blue('Executing command...'));
         try {
           const output = await executeCommand(command);
-          console.log(colorize.green('Command executed successfully:'));
-          console.log(output);
+          // For interactive commands, the output is just a success message
+          // For non-interactive commands, show the actual output
+          if (command && isInteractiveCommand(command)) {
+            // Use debug log wrapper function for interactive command completion
+            debugLog(`Interactive command "${command}" completed.`, 'green')
+          } else {
+            console.log(colorize.green('Command executed successfully:'));
+            console.log(output);
+          }
         } catch (error) {
           console.error(colorize.red('Failed to execute command:'), error);
         }
