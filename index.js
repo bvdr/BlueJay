@@ -18,6 +18,7 @@ const chalk = require('chalk');
 const ora = require('ora');
 let colorize;
 const { exec, spawn } = require('child_process');
+const { determineToolType, runTool, TOOLS } = require('./tools');
 
 // Setup colorize function (defined early for error handling)
 colorize = {
@@ -256,52 +257,71 @@ async function main() {
       color: 'blue'
     }).start();
 
-    // Check if the input is asking for a terminal command
-    const { isCommand, command } = await isTerminalCommand(openai, userInput);
+    // Determine which tool to use
+    const toolType = await determineToolType(openai, userInput);
 
     // Stop the spinner
     spinner.stop();
 
-    if (isCommand && command) {
-      console.log(colorize.green('I think you want to run this command:'));
-      console.log(colorize.cyan(command));
+    debugLog(`Determined tool type: ${toolType}`, 'blue');
 
-      let shouldExecute = true;
+    // Run the appropriate tool
+    if (toolType === TOOLS.TERMINAL) {
+      // For terminal commands, we still need to get the exact command
+      const { isCommand, command } = await isTerminalCommand(openai, userInput);
 
-      // Ask for confirmation if enabled in preferences
-      if (preferences.showCommandConfirmation) {
-        const { confirm } = await inquirer.prompt([
-          {
-            type: 'confirm',
-            name: 'confirm',
-            message: 'Do you want me to execute this command?',
-            default: false
+      if (isCommand && command) {
+        console.log(colorize.green('I think you want to run this command:'));
+        console.log(colorize.cyan(command));
+
+        let shouldExecute = true;
+
+        // Ask for confirmation if enabled in preferences
+        if (preferences.showCommandConfirmation) {
+          const { confirm } = await inquirer.prompt([
+            {
+              type: 'confirm',
+              name: 'confirm',
+              message: 'Do you want me to execute this command?',
+              default: false
+            }
+          ]);
+          shouldExecute = confirm;
+        }
+
+        if (shouldExecute) {
+          try {
+            const output = await executeCommand(command);
+            // For interactive commands, the output is just a success message
+            // For non-interactive commands, show the actual output
+            if (command && isInteractiveCommand(command)) {
+              // Use debug log wrapper function for interactive command completion
+              debugLog(`Interactive command "${command}" completed.`, 'green')
+            } else {
+              console.log(colorize.green('Command executed successfully:'));
+              console.log(output);
+            }
+          } catch (error) {
+            console.error(colorize.red('Failed to execute command:'), error);
           }
-        ]);
-        shouldExecute = confirm;
-      }
-
-      if (shouldExecute) {
-        try {
-          const output = await executeCommand(command);
-          // For interactive commands, the output is just a success message
-          // For non-interactive commands, show the actual output
-          if (command && isInteractiveCommand(command)) {
-            // Use debug log wrapper function for interactive command completion
-            debugLog(`Interactive command "${command}" completed.`, 'green')
-          } else {
-            console.log(colorize.green('Command executed successfully:'));
-            console.log(output);
-          }
-        } catch (error) {
-          console.error(colorize.red('Failed to execute command:'), error);
+        } else {
+          console.log(colorize.yellow('Command execution cancelled.'));
         }
       } else {
-        console.log(colorize.yellow('Command execution cancelled.'));
+        console.log(colorize.yellow("I couldn't determine the exact command to run."));
+      }
+    } else if (toolType === TOOLS.GITHUB) {
+      console.log(colorize.green('Launching GitHub tool...'));
+      const result = await runTool(TOOLS.GITHUB, openai, userInput);
+
+      if (!result.toolExecuted && result.error) {
+        console.error(colorize.red('Error running GitHub tool:'), result.error);
       }
     } else {
-      console.log(colorize.yellow("I don't think you're asking for a terminal command."));
-      console.log(colorize.yellow("This feature is currently being implemented."));
+      console.log(colorize.yellow("I'm not sure what tool to use for your request."));
+      console.log(colorize.yellow("Available tools:"));
+      console.log(colorize.cyan("1. Terminal - for executing terminal commands"));
+      console.log(colorize.cyan("2. GitHub - for interacting with GitHub (organizations, repositories, pull requests)"));
     }
   } catch (error) {
     console.error(colorize.red('An error occurred:'), error.message);
