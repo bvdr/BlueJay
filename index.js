@@ -241,27 +241,48 @@ function executeCommand(command) {
 async function main() {
   try {
     // Get user input from command line arguments
-    const userInput = process.argv.slice(2).join(' ');
+    let userInput = process.argv.slice(2).join(' ');
+    let toolType;
 
     if (!userInput) {
       console.log(colorize.yellow('Usage: j "your request here"'));
+      console.log(colorize.yellow('       j -agent "your complex task here"'));
       return;
     }
 
     // Initialize OpenAI
     const openai = await initOpenAI();
 
-    // Create and start a spinner
+    // Create a spinner (but don't start it yet)
     const spinner = ora({
       text: 'Processing your request...',
       color: 'blue'
-    }).start();
+    });
 
-    // Determine which tool to use
-    const toolType = await determineToolType(openai, userInput);
+    // Check if the input starts with -agent flag
+    if (userInput.startsWith('-agent ')) {
+      // Remove the -agent flag from the input
+      userInput = userInput.substring(7).trim();
 
-    // Stop the spinner
-    spinner.stop();
+      // If the input is empty after removing the flag, show usage
+      if (!userInput) {
+        console.log(colorize.yellow('Usage: j -agent "your complex task here"'));
+        return;
+      }
+
+      // Set the tool type to AGENTIC
+      toolType = TOOLS.AGENTIC;
+      debugLog(`Using Agentic Execution tool for input: ${userInput}`, 'blue');
+    } else {
+      // Start the spinner for tool type determination
+      spinner.start();
+
+      // Determine which tool to use
+      toolType = await determineToolType(openai, userInput);
+
+      // Stop the spinner
+      spinner.stop();
+    }
 
     debugLog(`Determined tool type: ${toolType}`, 'blue');
 
@@ -317,11 +338,19 @@ async function main() {
       if (!result.toolExecuted && result.error) {
         console.error(colorize.red('Error running GitHub tool:'), result.error);
       }
+    } else if (toolType === TOOLS.AGENTIC) {
+      console.log(colorize.green('Launching Agentic Execution tool...'));
+      const result = await runTool(TOOLS.AGENTIC, openai, userInput);
+
+      if (!result.toolExecuted && result.error) {
+        console.error(colorize.red('Error running Agentic Execution tool:'), result.error);
+      }
     } else {
       console.log(colorize.yellow("I'm not sure what tool to use for your request."));
       console.log(colorize.yellow("Available tools:"));
       console.log(colorize.cyan("1. Terminal - for executing terminal commands"));
       console.log(colorize.cyan("2. GitHub - for interacting with GitHub (organizations, repositories, pull requests)"));
+      console.log(colorize.cyan("3. Agentic - for performing a chain of actions with planning and execution"));
     }
   } catch (error) {
     console.error(colorize.red('An error occurred:'), error.message);
