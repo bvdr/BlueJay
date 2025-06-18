@@ -15,6 +15,7 @@ dotenv.config({ path: ENV_FILE_PATH });
 const { OpenAI } = require('openai');
 const inquirer = require('inquirer');
 const chalk = require('chalk');
+const ora = require('ora');
 let colorize;
 const { exec } = require('child_process');
 
@@ -169,10 +170,17 @@ async function main() {
     // Initialize OpenAI
     const openai = await initOpenAI();
 
-    console.log(colorize.blue('Processing your request...'));
+    // Create and start a spinner
+    const spinner = ora({
+      text: 'Processing your request...',
+      color: 'blue'
+    }).start();
 
     // Check if the input is asking for a terminal command
     const { isCommand, command } = await isTerminalCommand(openai, userInput);
+
+    // Stop the spinner
+    spinner.stop();
 
     if (isCommand && command) {
       console.log(colorize.green('I think you want to run this command:'));
