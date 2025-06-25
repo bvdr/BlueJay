@@ -29,9 +29,9 @@
     "url": "https://github.com/bvdr/JarvisAI-CLI/issues"
   },
   "dependencies": {
-    "dotenv": "^16.3.1",
-    "openai": "^4.0.0",
-    "inquirer": "^8.2.5",
+    "dotenv": "^16.4.5",
+    "openai": "^4.67.3",
+    "inquirer": "^8.2.6",
     "chalk": "^4.1.2",
     "ora": "^5.4.1",
     "@octokit/rest": "^19.0.13"
