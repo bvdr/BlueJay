@@ -6,16 +6,23 @@ A command line tool that speeds up your development process by using AI to under
 
 - Natural language processing of your requests
 - Automatic detection and execution of terminal commands
-- Interactive GitHub tool for browsing organizations, repositories, and pull requests
-- Agentic execution for complex tasks requiring multiple steps
 - Secure storage of API keys and preferences
+- Debug mode for troubleshooting
+- Support for both interactive and non-interactive commands
+- Customizable preferences and settings
+
+## Prerequisites
+
+- Node.js (version 14 or higher)
+- npm (comes with Node.js)
+- OpenAI API key
 
 ## Installation
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/jarvis-cli.git
-cd jarvis-cli
+git clone https://github.com/bvdr/JarvisAI-CLI.git
+cd JarvisAI-CLI
 
 # Install dependencies
 npm install
@@ -38,22 +45,18 @@ j "create a new directory called my-project"
 # Ask Jarvis for help with a git command
 j "how do I revert my last commit"
 
-# Use the GitHub tool to browse repositories and pull requests
-j "show me my GitHub repositories"
-j "check pull requests for my organization"
+# Ask Jarvis to help with file operations
+j "find all JavaScript files in this directory"
 
-# Use the Agentic Execution tool for complex tasks
-j -agent "get latest PR's in the optinmonster app repo"
-j -agent "setup a new React project with TypeScript and deploy it to Vercel"
+# Ask Jarvis to help with system tasks
+j "show me the current disk usage"
 ```
 
 ## Configuration
 
 On first run, Jarvis will ask for your OpenAI API key, which will be stored securely in the `~/.j/.env` file in your home directory.
 
-When you first use the GitHub tool, Jarvis will ask for your GitHub personal access token, which will also be stored in the `~/.j/.env` file.
-
-You can customize Jarvis by editing the `.j-preferences` file in your home directory.
+You can customize Jarvis by editing the `.j-preferences` file in your home directory or in your current project directory (local preferences take precedence).
 
 ## Available Settings
 
@@ -65,39 +68,57 @@ The `.j-preferences` file contains the following settings:
   "showCommandConfirmation": true,
   "colorOutput": true,
   "saveCommandHistory": true,
-  "maxHistoryItems": 100
+  "maxHistoryItems": 100,
+  "debug": false
 }
 ```
 
-## Agentic Execution Tool
+### Setting Descriptions
 
-The Agentic Execution tool allows you to perform complex tasks that require multiple steps. It works by:
+- **defaultModel**: The OpenAI model to use for processing requests (default: "gpt-4o")
+- **showCommandConfirmation**: Whether to ask for confirmation before executing commands (default: true)
+- **colorOutput**: Whether to use colored output in the terminal (default: true)
+- **saveCommandHistory**: Whether to save command history (default: true)
+- **maxHistoryItems**: Maximum number of history items to keep (default: 100)
+- **debug**: Whether to show debug information during execution (default: false)
 
-1. Creating a step-by-step plan (maximum 10 steps) to accomplish your request
-2. Assessing the certainty level of each step (0-100%)
-3. Executing each step sequentially
-4. Asking for clarification when certainty is below the threshold (default 70%)
-5. Verifying the results of each step
+## How It Works
 
-### Key Features
+Jarvis CLI uses AI to interpret your natural language requests and convert them into terminal commands. Here's the process:
 
-- **Orchestrator**: Plans tasks and assesses the certainty level of each step
-- **Executor**: Performs tasks only if certainty is adequate; requests clarification otherwise
-- **Selector/Verifier**: Validates task outcomes and confirms whether expectations align
+1. **Input Processing**: You provide a natural language request
+2. **AI Analysis**: The AI analyzes your request to determine if it can be fulfilled with a terminal command
+3. **Command Generation**: If applicable, the AI generates the appropriate terminal command
+4. **Confirmation**: By default, Jarvis shows you the command and asks for confirmation before execution
+5. **Execution**: Upon confirmation, the command is executed with proper handling for both interactive and non-interactive commands
 
-### Usage
+### Interactive vs Non-Interactive Commands
 
-```bash
-# Basic usage
-j -agent "your complex task here"
+Jarvis automatically detects whether a command is interactive (like `vim`, `nano`, `ssh`) and handles them appropriately:
+- **Interactive commands**: Full terminal control is passed to the command
+- **Non-interactive commands**: Output is captured and displayed after execution
 
-# Examples
-j -agent "get latest PR's in the x app repo"
-j -agent "setup a new React project with TypeScript and deploy it to Vercel"
-```
+## Contributing
 
-When using the Agentic Execution tool, you can configure the certainty threshold (0.0-1.0) that determines when the tool will ask for clarification.
+We welcome contributions! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+### Development Setup
+
+1. Fork the repository
+2. Clone your fork: `git clone https://github.com/your-username/JarvisAI-CLI.git`
+3. Install dependencies: `npm install`
+4. Make your changes
+5. Test your changes locally
+6. Submit a pull request
+
+## Issues
+
+If you encounter any problems or have feature requests, please [open an issue](https://github.com/bvdr/JarvisAI-CLI/issues) on GitHub.
+
+## Security
+
+This tool requires an OpenAI API key which is stored locally in `~/.j/.env`. Never commit this file or share your API key publicly.
 
 ## License
 
-MIT
+MIT - see the [LICENSE](LICENSE) file for details.

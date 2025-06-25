@@ -1,7 +1,7 @@
 {
   "name": "jarvis-cli",
   "version": "1.0.0",
-  "description": "A command line tool that speeds up development process",
+  "description": "A command line tool that speeds up development process using AI to interpret natural language requests and execute terminal commands",
   "main": "index.js",
   "bin": {
     "j": "./index.js"
@@ -13,10 +13,21 @@
     "cli",
     "productivity",
     "ai",
-    "openai"
+    "openai",
+    "terminal",
+    "automation",
+    "natural-language"
   ],
-  "author": "",
+  "author": "BVDR Organization",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bvdr/JarvisAI-CLI.git"
+  },
+  "homepage": "https://github.com/bvdr/JarvisAI-CLI#readme",
+  "bugs": {
+    "url": "https://github.com/bvdr/JarvisAI-CLI/issues"
+  },
   "dependencies": {
     "dotenv": "^16.3.1",
     "openai": "^4.0.0",
