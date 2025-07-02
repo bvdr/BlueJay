@@ -302,6 +302,129 @@ async function firstRunSetup() {
   return updatedPreferences;
 }
 
+// Update credentials submenu
+async function updateCredentials() {
+  intro(colorize.cyan('🔑 Update Credentials'));
+
+  const credentialAction = await select({
+    message: 'Which API key would you like to update?',
+    options: [
+      { value: 'update-openai-key', label: 'Update OpenAI API Key' },
+      { value: 'update-gemini-key', label: 'Update Google Gemini API Key' }
+    ]
+  });
+
+  if (isCancel(credentialAction)) {
+    cancel('Credential update cancelled');
+    return;
+  }
+
+  switch (credentialAction) {
+    case 'update-openai-key':
+      const openaiKey = await text({
+        message: 'Enter your new OpenAI API key:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'API key is required';
+        }
+      });
+
+      if (!isCancel(openaiKey)) {
+        // Update .env file
+        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+        if (envContent.includes('OPENAI_API_KEY=')) {
+          envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${openaiKey}\n`);
+        } else {
+          envContent += `OPENAI_API_KEY=${openaiKey}\n`;
+        }
+        fs.writeFileSync(ENV_FILE_PATH, envContent);
+        process.env.OPENAI_API_KEY = openaiKey;
+        console.log(colorize.green('OpenAI API key updated successfully!'));
+      }
+      break;
+
+    case 'update-gemini-key':
+      const geminiKey = await text({
+        message: 'Enter your new Google Gemini API key:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'API key is required';
+        }
+      });
+
+      if (!isCancel(geminiKey)) {
+        // Update .env file
+        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+        if (envContent.includes('GEMINI_API_KEY=')) {
+          envContent = envContent.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${geminiKey}\n`);
+        } else {
+          envContent += `GEMINI_API_KEY=${geminiKey}\n`;
+        }
+        fs.writeFileSync(ENV_FILE_PATH, envContent);
+        process.env.GEMINI_API_KEY = geminiKey;
+        console.log(colorize.green('Google Gemini API key updated successfully!'));
+      }
+      break;
+  }
+
+  outro(colorize.green('Credentials updated!'));
+}
+
+// Preferences management with checkboxes
+async function managePreferences() {
+  intro(colorize.cyan('⚙️  Preferences'));
+
+  const currentPreferences = [
+    {
+      name: 'showCommandConfirmation',
+      message: 'Command Confirmation',
+      checked: preferences.showCommandConfirmation
+    },
+    {
+      name: 'colorOutput',
+      message: 'Colored Output',
+      checked: preferences.colorOutput
+    },
+    {
+      name: 'debug',
+      message: 'Debug Mode',
+      checked: preferences.debug
+    }
+  ];
+
+  const selectedPreferences = await inquirer.prompt([
+    {
+      type: 'checkbox',
+      name: 'preferences',
+      message: 'Select your preferences:',
+      choices: currentPreferences.map(pref => ({
+        name: pref.message,
+        value: pref.name,
+        checked: pref.checked
+      }))
+    }
+  ]);
+
+  // Update preferences based on selections
+  const updatedPreferences = { ...preferences };
+
+  // Set all preferences to false first
+  updatedPreferences.showCommandConfirmation = false;
+  updatedPreferences.colorOutput = false;
+  updatedPreferences.debug = false;
+
+  // Then set selected ones to true
+  selectedPreferences.preferences.forEach(prefName => {
+    updatedPreferences[prefName] = true;
+  });
+
+  // Save updated preferences
+  fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
+  console.log(colorize.green('Preferences updated successfully!'));
+
+  outro(colorize.green('Preferences saved!'));
+
+  return updatedPreferences;
+}
+
 // Settings management
 async function showSettings() {
   intro(colorize.cyan('⚙️  BlueJay Settings'));
@@ -309,13 +432,10 @@ async function showSettings() {
   const action = await select({
     message: 'What would you like to do?',
     options: [
-      { value: 'change-provider', label: 'Change AI Provider' },
-      { value: 'change-model', label: 'Change Model' },
-      { value: 'update-openai-key', label: 'Update OpenAI API Key' },
-      { value: 'update-gemini-key', label: 'Update Google Gemini API Key' },
-      { value: 'toggle-confirmation', label: 'Toggle Command Confirmation' },
-      { value: 'toggle-colors', label: 'Toggle Colored Output' },
-      { value: 'toggle-debug', label: 'Toggle Debug Mode' },
+      { value: 'change-provider', label: `AI Provider: ${preferences.aiProvider || 'Not set'}` },
+      { value: 'change-model', label: `Model: ${preferences.defaultModel || 'Not set'}` },
+      { value: 'update-credentials', label: 'Update Credentials' },
+      { value: 'preferences', label: 'Preferences' },
       { value: 'view-current', label: 'View Current Settings' }
     ]
   });
@@ -374,72 +494,22 @@ async function showSettings() {
       }
       break;
 
-    case 'update-openai-key':
-      const openaiKey = await text({
-        message: 'Enter your new OpenAI API key:',
-        validate: (value) => {
-          if (!value || value.trim() === '') return 'API key is required';
-        }
-      });
-
-      if (!isCancel(openaiKey)) {
-        // Update .env file
-        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
-        if (envContent.includes('OPENAI_API_KEY=')) {
-          envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${openaiKey}\n`);
-        } else {
-          envContent += `OPENAI_API_KEY=${openaiKey}\n`;
-        }
-        fs.writeFileSync(ENV_FILE_PATH, envContent);
-        process.env.OPENAI_API_KEY = openaiKey;
-        console.log(colorize.green('OpenAI API key updated successfully!'));
-      }
+    case 'update-credentials':
+      await updateCredentials();
       break;
 
-    case 'update-gemini-key':
-      const geminiKey = await text({
-        message: 'Enter your new Google Gemini API key:',
-        validate: (value) => {
-          if (!value || value.trim() === '') return 'API key is required';
-        }
-      });
-
-      if (!isCancel(geminiKey)) {
-        // Update .env file
-        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
-        if (envContent.includes('GEMINI_API_KEY=')) {
-          envContent = envContent.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${geminiKey}\n`);
-        } else {
-          envContent += `GEMINI_API_KEY=${geminiKey}\n`;
-        }
-        fs.writeFileSync(ENV_FILE_PATH, envContent);
-        process.env.GEMINI_API_KEY = geminiKey;
-        console.log(colorize.green('Google Gemini API key updated successfully!'));
-      }
-      break;
-
-    case 'toggle-confirmation':
-      updatedPreferences.showCommandConfirmation = !preferences.showCommandConfirmation;
-      console.log(colorize.green(`Command confirmation ${updatedPreferences.showCommandConfirmation ? 'enabled' : 'disabled'}`));
-      break;
-
-    case 'toggle-colors':
-      updatedPreferences.colorOutput = !preferences.colorOutput;
-      console.log(colorize.green(`Colored output ${updatedPreferences.colorOutput ? 'enabled' : 'disabled'}`));
-      break;
-
-    case 'toggle-debug':
-      updatedPreferences.debug = !preferences.debug;
-      console.log(colorize.green(`Debug mode ${updatedPreferences.debug ? 'enabled' : 'disabled'}`));
+    case 'preferences':
+      updatedPreferences = await managePreferences();
       break;
 
     case 'view-current':
       console.log(colorize.blue('\n📋 Current Settings:'));
       console.log(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
       console.log(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
-      console.log(colorize.cyan(`Command Confirmation: ${preferences.showCommandConfirmation ? 'Enabled' : 'Disabled'}`));
-      console.log(colorize.cyan(`Colored Output: ${preferences.colorOutput ? 'Enabled' : 'Disabled'}`));
-      console.log(colorize.cyan(`Debug Mode: ${preferences.debug ? 'Enabled' : 'Disabled'}`));
+      console.log(colorize.blue('\nPreferences:'));
+      console.log(colorize.cyan(`│  ○ Command Confirmation`));
+      console.log(colorize.cyan(`│  ○ Colored Output`));
+      console.log(colorize.cyan(`│  ○ Debug Mode`));
       break;
   }
 
