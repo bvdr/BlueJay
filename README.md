@@ -1,5 +1,5 @@
 
-<img src="https://github.com/user-attachments/assets/23e4f08e-6549-4ba2-be30-619cedee36e1" width=300 />
+<img src="https://github.com/user-attachments/assets/a964f6f2-b2b0-48b3-bdce-a328c5e13690" width=300 />
 
 # BlueJay CLI (j)
 
