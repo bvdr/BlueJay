@@ -31,7 +31,7 @@ colorize = {
 
 // Paths for configuration files
 const LOCAL_PREFERENCES_FILE_PATH = path.join(process.cwd(), '.j-preferences');
-const HOME_PREFERENCES_FILE_PATH = path.join(os.homedir(), '.j-preferences');
+const HOME_PREFERENCES_FILE_PATH = path.join(J_DIR_PATH, '.j-preferences');
 
 // Default preferences
 const DEFAULT_PREFERENCES = {
