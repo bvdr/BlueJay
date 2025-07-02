@@ -1,13 +1,3 @@
-## [2.0.1] - 2025-07-02
-
-### Added
-- Version 2.0.1 release
-
-## [2.0.0] - 2025-07-02
-
-### Added
-- Version 2.0.0 release
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
