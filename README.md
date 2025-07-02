@@ -22,6 +22,15 @@ A command-line tool that speeds up your development process by using AI to under
 
 ## Installation
 
+### From GitHub Packages (Recommended)
+
+```bash
+# Install globally from GitHub Packages
+npm install -g @bvdr/bluejay
+```
+
+### From Source
+
 ```bash
 # Clone the repository
 git clone https://github.com/bvdr/BlueJay.git
@@ -111,8 +120,34 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 2. Clone your fork: `git clone https://github.com/your-username/BlueJay.git`
 3. Install dependencies: `npm install`
 4. Make your changes
-5. Test your changes locally
+5. Test your changes locally: `node test-package.js`
 6. Submit a pull request
+
+### Publishing (Maintainers Only)
+
+This project uses GitHub Actions for automated publishing to GitHub Packages:
+
+#### Automatic Publishing
+- **On Push to Main**: The package is automatically published when code is pushed to the main branch
+- **On Release**: The package is published when a new GitHub release is created
+
+#### Manual Release Creation
+1. Go to the "Actions" tab in the GitHub repository
+2. Select "Create Release" workflow
+3. Click "Run workflow"
+4. Choose the version bump type (patch, minor, or major)
+5. The workflow will:
+   - Run tests
+   - Bump the version in package.json
+   - Update CHANGELOG.md
+   - Create a git tag and GitHub release
+   - Trigger the publish workflow automatically
+
+#### Testing Package Configuration
+Run the package test script to verify everything is configured correctly:
+```bash
+node test-package.js
+```
 
 ## Issues
 

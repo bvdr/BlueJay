@@ -1,0 +1,94 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: 'Version bump type'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@bvdr'
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: node test-package.js
+
+      - name: Bump version
+        run: npm version ${{ github.event.inputs.version_type }} --no-git-tag-version
+
+      - name: Get new version
+        id: version
+        run: echo "new_version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Update CHANGELOG
+        run: |
+          echo "## [${{ steps.version.outputs.new_version }}] - $(date +%Y-%m-%d)" >> CHANGELOG_NEW.md
+          echo "" >> CHANGELOG_NEW.md
+          echo "### Added" >> CHANGELOG_NEW.md
+          echo "- Version ${{ steps.version.outputs.new_version }} release" >> CHANGELOG_NEW.md
+          echo "" >> CHANGELOG_NEW.md
+          cat CHANGELOG.md >> CHANGELOG_NEW.md
+          mv CHANGELOG_NEW.md CHANGELOG.md
+
+      - name: Commit changes
+        run: |
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }}"
+          git push
+
+      - name: Create Git Tag
+        run: git tag v${{ steps.version.outputs.new_version }}
+
+      - name: Push Tag
+        run: git push origin v${{ steps.version.outputs.new_version }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.version.outputs.new_version }}
+          name: Release v${{ steps.version.outputs.new_version }}
+          body: |
+            ## Changes in v${{ steps.version.outputs.new_version }}
+
+            See [CHANGELOG.md](https://github.com/bvdr/BlueJay/blob/main/CHANGELOG.md) for detailed changes.
+
+            ## Installation
+
+            ```bash
+            npm install -g @bvdr/bluejay
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
