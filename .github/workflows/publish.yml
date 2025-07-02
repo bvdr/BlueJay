@@ -1,10 +1,8 @@
 name: Publish Package
 
 on:
-  push:
-    branches: [ master ]
   release:
-    types: [ published ]
+    types: [ published, released ]
 
 jobs:
   publish:
@@ -14,10 +12,19 @@ jobs:
       packages: write
 
     steps:
+      - name: Debug Release Event
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Action: ${{ github.event.action }}"
+          echo "Release tag: ${{ github.event.release.tag_name }}"
+          echo "Release name: ${{ github.event.release.name }}"
+          echo "Release draft: ${{ github.event.release.draft }}"
+          echo "Release prerelease: ${{ github.event.release.prerelease }}"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js for GitHub Packages
         uses: actions/setup-node@v4
         with:
           node-version: '18'
@@ -34,3 +41,15 @@ jobs:
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js for npm
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+          scope: '@bvdr'
+
+      - name: Publish to npm
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

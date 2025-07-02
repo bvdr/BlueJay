@@ -41,7 +41,7 @@ async function testPackage() {
     console.log(`   ✅ Package name: ${packageJson.name}`);
     console.log(`   ✅ Version: ${packageJson.version}`);
     console.log(`   ✅ Binary: ${packageJson.bin.j}`);
-    console.log(`   ✅ Registry: ${packageJson.publishConfig.registry}`);
+    console.log(`   ✅ Registry: ${packageJson.publishConfig?.registry || 'https://registry.npmjs.org (default)'}`);
 
     // Test 2: Check if main files exist
     console.log('\n2️⃣ Checking required files...');

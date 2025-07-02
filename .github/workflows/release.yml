@@ -30,7 +30,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          registry-url: 'https://npm.pkg.github.com'
+          registry-url: 'https://registry.npmjs.org'
           scope: '@bvdr'
 
       - name: Configure Git
@@ -74,7 +74,7 @@ jobs:
         run: git push origin v${{ steps.version.outputs.new_version }}
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.version.outputs.new_version }}
           name: Release v${{ steps.version.outputs.new_version }}
@@ -90,5 +90,6 @@ jobs:
             ```
           draft: false
           prerelease: false
+          make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
