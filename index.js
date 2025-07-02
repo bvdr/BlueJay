@@ -5,6 +5,7 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const https = require('https');
 
 // Define paths early for dotenv configuration
 const J_DIR_PATH = path.join(os.homedir(), '.j');
@@ -119,22 +120,36 @@ async function checkOpenAIKey() {
   if (!process.env.OPENAI_API_KEY) {
     console.log(colorize.yellow('OpenAI API key not found.'));
 
-    const { apiKey } = await inquirer.prompt([
-      {
-        type: 'input',
-        name: 'apiKey',
-        message: 'Please enter your OpenAI API key:',
-        validate: input => input.trim() !== '' ? true : 'API key is required'
+    const apiKey = await text({
+      message: 'Please enter your OpenAI API key:',
+      validate: (value) => {
+        if (!value || value.trim() === '') return 'API key is required';
       }
-    ]);
+    });
+
+    if (isCancel(apiKey)) {
+      cancel('Setup cancelled');
+      process.exit(0);
+    }
 
     // Ensure the .j directory exists
     if (!fs.existsSync(J_DIR_PATH)) {
       fs.mkdirSync(J_DIR_PATH, { recursive: true });
     }
 
-    // Save API key to .env file
-    const envContent = `OPENAI_API_KEY=${apiKey}\n`;
+    // Read existing .env content
+    let envContent = '';
+    if (fs.existsSync(ENV_FILE_PATH)) {
+      envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+    }
+
+    // Add or update OpenAI API key
+    if (envContent.includes('OPENAI_API_KEY=')) {
+      envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${apiKey}\n`);
+    } else {
+      envContent += `OPENAI_API_KEY=${apiKey}\n`;
+    }
+
     fs.writeFileSync(ENV_FILE_PATH, envContent);
 
     // Set the API key for the current session
@@ -219,6 +234,97 @@ async function initAI(provider) {
   }
 }
 
+// Fetch available models from OpenAI
+async function fetchOpenAIModels() {
+  try {
+    const client = await initOpenAI();
+    const response = await client.models.list();
+    const models = response.data
+      .filter(model => model.id.includes('gpt'))
+      .map(model => ({
+        value: model.id,
+        label: model.id.toUpperCase().replace(/-/g, ' '),
+        recommended: false
+      }))
+      .sort((a, b) => a.value.localeCompare(b.value));
+
+    // Mark recommended model
+    const recommendedModel = models.find(m => m.value === 'gpt-4o');
+    if (recommendedModel) {
+      recommendedModel.recommended = true;
+      // Move recommended model to the front
+      const otherModels = models.filter(m => m.value !== 'gpt-4o');
+      return [recommendedModel, ...otherModels];
+    }
+
+    return models;
+  } catch (error) {
+    debugLog(`Failed to fetch OpenAI models: ${error.message}`, 'yellow');
+    // Fallback to hardcoded models
+    return OPENAI_MODELS;
+  }
+}
+
+// Fetch available models from Google Gemini
+async function fetchGeminiModels() {
+  try {
+    const client = await initGemini();
+
+    // Use the REST API to list models since the SDK doesn't have a direct listModels method
+    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`;
+
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, (res) => {
+        let body = '';
+        res.on('data', (chunk) => body += chunk);
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }).on('error', reject);
+    });
+
+    if (!data.models) {
+      throw new Error('No models returned from Gemini API');
+    }
+
+    const geminiModels = data.models
+      .filter(model => model.name.includes('gemini') && model.name.includes('generateContent'))
+      .map(model => {
+        const modelId = model.name.split('/').pop();
+        return {
+          value: modelId,
+          label: modelId.split('-').map(word =>
+            word.charAt(0).toUpperCase() + word.slice(1)
+          ).join(' '),
+          recommended: false
+        };
+      })
+      .sort((a, b) => a.value.localeCompare(b.value));
+
+    // Mark recommended model
+    const recommendedModel = geminiModels.find(m => m.value === 'gemini-2.0-flash');
+    if (recommendedModel) {
+      recommendedModel.recommended = true;
+      // Move recommended model to the front
+      const otherModels = geminiModels.filter(m => m.value !== 'gemini-2.0-flash');
+      geminiModels.splice(0, geminiModels.length, recommendedModel, ...otherModels);
+    }
+
+    // Add custom model option
+    geminiModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
+
+    return geminiModels;
+  } catch (error) {
+    debugLog(`Failed to fetch Gemini models: ${error.message}`, 'yellow');
+    // Fallback to hardcoded models
+    return GEMINI_MODELS;
+  }
+}
+
 // First-run setup for AI provider and model selection
 async function firstRunSetup() {
   intro(colorize.cyan('🐦 Welcome to BlueJay!')+" - "+colorize.blue('Your AI assistant for the terminal'));
@@ -236,21 +342,38 @@ async function firstRunSetup() {
     process.exit(0);
   }
 
+  // Check API key for the selected provider
+  if (provider === AI_PROVIDERS.OPENAI) {
+    await checkOpenAIKey();
+  } else if (provider === AI_PROVIDERS.GEMINI) {
+    await checkGeminiKey();
+  }
+
   // Select model based on provider
   let model;
   if (provider === AI_PROVIDERS.OPENAI) {
+    const s = spinner();
+    s.start('Fetching available OpenAI models...');
+    const availableModels = await fetchOpenAIModels();
+    s.stop('Models fetched successfully');
+
     model = await select({
       message: 'Choose your OpenAI model:',
-      options: OPENAI_MODELS.map(m => ({
+      options: availableModels.map(m => ({
         value: m.value,
         label: m.label,
         hint: m.recommended ? 'Recommended' : undefined
       }))
     });
   } else if (provider === AI_PROVIDERS.GEMINI) {
+    const s = spinner();
+    s.start('Fetching available Gemini models...');
+    const availableModels = await fetchGeminiModels();
+    s.stop('Models fetched successfully');
+
     model = await select({
       message: 'Choose your Google Gemini model:',
-      options: GEMINI_MODELS.map(m => ({
+      options: availableModels.map(m => ({
         value: m.value,
         label: m.label,
         hint: m.recommended ? 'Recommended' : undefined
@@ -459,8 +582,19 @@ async function showSettings() {
         // Reset model when changing provider
         updatedPreferences.defaultModel = null;
 
+        // Check API key for the selected provider
+        if (newProvider === AI_PROVIDERS.OPENAI) {
+          await checkOpenAIKey();
+        } else if (newProvider === AI_PROVIDERS.GEMINI) {
+          await checkGeminiKey();
+        }
+
         // Immediately prompt for model selection after provider change
-        const models = newProvider === AI_PROVIDERS.OPENAI ? OPENAI_MODELS : GEMINI_MODELS;
+        const s = spinner();
+        s.start(`Fetching available ${newProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Gemini'} models...`);
+        const models = newProvider === AI_PROVIDERS.OPENAI ? await fetchOpenAIModels() : await fetchGeminiModels();
+        s.stop('Models fetched successfully');
+
         const newModel = await select({
           message: `Choose your ${newProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
           options: models.map(m => ({
@@ -491,7 +625,11 @@ async function showSettings() {
       break;
 
     case 'change-model':
-      const models = preferences.aiProvider === AI_PROVIDERS.OPENAI ? OPENAI_MODELS : GEMINI_MODELS;
+      const s2 = spinner();
+      s2.start(`Fetching available ${preferences.aiProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Gemini'} models...`);
+      const models = preferences.aiProvider === AI_PROVIDERS.OPENAI ? await fetchOpenAIModels() : await fetchGeminiModels();
+      s2.stop('Models fetched successfully');
+
       const newModel = await select({
         message: `Choose your ${preferences.aiProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
         options: models.map(m => ({
