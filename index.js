@@ -326,12 +326,11 @@ async function fetchOpenAIModels() {
 
 // Helper function to filter for Gemini text completion models only
 function isGeminiTextCompletionModel(modelName) {
-  // Filter for models that support text generation (generateContent)
+  // Filter for models that support text generation
   // Exclude embedding or other specialized models
   const excludePatterns = ['embedding', 'vision', 'audio'];
 
   return modelName.includes('gemini') &&
-         modelName.includes('generateContent') &&
          !excludePatterns.some(pattern => modelName.toLowerCase().includes(pattern));
 }
 
