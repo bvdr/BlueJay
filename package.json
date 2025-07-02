@@ -1,13 +1,26 @@
 {
-  "name": "bluejay-cli",
+  "name": "@bvdr/bluejay",
   "version": "1.0.0",
   "description": "A command line tool that speeds up development process using AI to interpret natural language requests and execute terminal commands",
   "main": "index.js",
   "bin": {
     "j": "./index.js"
   },
+  "files": [
+    "index.js",
+    "tools/",
+    "scripts/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    ".env.example"
+  ],
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "node scripts/postinstall.js"
   },
   "keywords": [
     "cli",
