@@ -1,6 +1,9 @@
-# Jarvis CLI (j)
 
-A command line tool that speeds up your development process by using AI to understand and execute your requests.
+<img src="https://github.com/user-attachments/assets/23e4f08e-6549-4ba2-be30-619cedee36e1" width=300 />
+
+# BlueJay CLI (j)
+
+A command-line tool that speeds up your development process by using AI to understand and execute your requests.
 
 ## Features
 
