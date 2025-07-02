@@ -1,7 +1,7 @@
-## [2.0.2] - 2025-07-02
+## [1.0.1] - 2025-07-02
 
 ### Added
-- Version 2.0.2 release
+- Version 1.0.1 release
 
 # Changelog
 
