@@ -8,31 +8,50 @@ const TOOLS = {
   UNKNOWN: 'unknown'
 };
 
-// Determine which tool to use based on user input
-async function determineToolType(openai, userInput) {
+// AI Provider configurations (imported from main)
+const AI_PROVIDERS = {
+  OPENAI: 'openai',
+  GEMINI: 'gemini'
+};
+
+// Determine which tool to use based on user input (works with both OpenAI and Gemini)
+async function determineToolType(aiClient, userInput, provider) {
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o',
-      messages: [
-        {
-          role: 'system',
-          content: `You are a helpful assistant that determines which tool a user wants to use based on their input.
+    const systemPrompt = `You are a helpful assistant that determines which tool a user wants to use based on their input.
 Available tools:
 1. Terminal - for executing terminal commands
 
 If the user is asking to execute a terminal command, respond with "TOOL:TERMINAL".
 If you're unsure or the request doesn't match any tool, respond with "TOOL:UNKNOWN".
-Respond ONLY with the tool identifier, no additional text.`
-        },
-        {
-          role: 'user',
-          content: userInput
-        }
-      ],
-      temperature: 0.2,
-    });
+Respond ONLY with the tool identifier, no additional text.`;
 
-    const content = response.choices[0].message.content.trim();
+    let content;
+
+    if (provider === AI_PROVIDERS.OPENAI) {
+      const response = await aiClient.chat.completions.create({
+        model: 'gpt-4o', // Default model, will be overridden by preferences
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userInput
+          }
+        ],
+        temperature: 0.2,
+      });
+      content = response.choices[0].message.content.trim();
+    } else if (provider === AI_PROVIDERS.GEMINI) {
+      // Use a default model if preferences aren't available
+      const modelName = 'gemini-2.0-flash'; // Updated default model
+      const model = aiClient.getGenerativeModel({ model: modelName });
+      const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      content = response.text().trim();
+    }
 
     if (content.includes('TOOL:TERMINAL')) {
       return TOOLS.TERMINAL;
@@ -40,7 +59,7 @@ Respond ONLY with the tool identifier, no additional text.`
       return TOOLS.UNKNOWN;
     }
   } catch (error) {
-    console.error(chalk.red('Error determining tool type:'), error.message);
+    console.error(chalk.red(`Error determining tool type with ${provider}:`), error.message);
     return TOOLS.UNKNOWN;
   }
 }

@@ -13,7 +13,9 @@ const ENV_FILE_PATH = path.join(J_DIR_PATH, '.env');
 // Configure dotenv to use the custom path
 dotenv.config({ path: ENV_FILE_PATH });
 const { OpenAI } = require('openai');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 const inquirer = require('inquirer');
+const { intro, outro, text, select, confirm, spinner, isCancel, cancel } = require('@clack/prompts');
 const chalk = require('chalk');
 const ora = require('ora');
 let colorize;
@@ -35,13 +37,36 @@ const HOME_PREFERENCES_FILE_PATH = path.join(J_DIR_PATH, '.j-preferences');
 
 // Default preferences
 const DEFAULT_PREFERENCES = {
-  defaultModel: 'gpt-4o',
+  aiProvider: null, // Will be set during first run
+  defaultModel: null, // Will be set during first run
   showCommandConfirmation: true,
   colorOutput: true,
   saveCommandHistory: true,
   maxHistoryItems: 100,
   debug: false
 };
+
+// AI Provider configurations
+const AI_PROVIDERS = {
+  OPENAI: 'openai',
+  GEMINI: 'gemini'
+};
+
+const OPENAI_MODELS = [
+  { value: 'gpt-4o', label: 'GPT-4o (Recommended)', recommended: true },
+  { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+  { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+];
+
+const GEMINI_MODELS = [
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Recommended)', recommended: true },
+  { value: 'gemini-2.0-flash-light', label: 'Gemini 2.0 Flash Light' },
+  { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
+  { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  { value: 'gemini-pro', label: 'Gemini Pro' },
+  { value: 'custom', label: 'Custom Model (Enter manually)' }
+];
 
 // Load preferences
 function loadPreferences() {
@@ -128,26 +153,338 @@ async function initOpenAI() {
   return new OpenAI({ apiKey });
 }
 
-// Ask OpenAI if the input is a terminal command
-async function isTerminalCommand(openai, userInput) {
-  try {
-    // Use debug log wrapper function
-    const response = await openai.chat.completions.create({
-      model: preferences.defaultModel,
-      messages: [
-        {
-          role: 'system',
-          content: 'You are a helpful assistant that runs in a terminal on a MAC OS/LINUX. Your primary goal is to interpret user input as terminal commands whenever possible. Be very liberal in your interpretation - if there is any way the user\'s request could be fulfilled with a terminal command, provide that command. Even if the request is ambiguous or could be interpreted in multiple ways, prefer to respond with a command rather than "NOT_A_COMMAND". If you provide a command, respond ONLY with the command to run, with no additional text or explanation. Only respond with "NOT_A_COMMAND" if the user\'s input is clearly not related to any possible terminal operation or file system task.'
-        },
-        {
-          role: 'user',
-          content: userInput
-        }
-      ],
-      temperature: 0.2,
+// Check if Google Gemini API key exists, if not prompt for it
+async function checkGeminiKey() {
+  if (!process.env.GEMINI_API_KEY) {
+    console.log(colorize.yellow('Google Gemini API key not found.'));
+
+    const apiKey = await text({
+      message: 'Please enter your Google Gemini API key:',
+      validate: (value) => {
+        if (!value || value.trim() === '') return 'API key is required';
+      }
     });
 
-    const content = response.choices[0].message.content;
+    if (isCancel(apiKey)) {
+      cancel('Setup cancelled');
+      process.exit(0);
+    }
+
+    // Ensure the .j directory exists
+    if (!fs.existsSync(J_DIR_PATH)) {
+      fs.mkdirSync(J_DIR_PATH, { recursive: true });
+    }
+
+    // Read existing .env content
+    let envContent = '';
+    if (fs.existsSync(ENV_FILE_PATH)) {
+      envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+    }
+
+    // Add or update Gemini API key
+    if (envContent.includes('GEMINI_API_KEY=')) {
+      envContent = envContent.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${apiKey}\n`);
+    } else {
+      envContent += `GEMINI_API_KEY=${apiKey}\n`;
+    }
+
+    fs.writeFileSync(ENV_FILE_PATH, envContent);
+
+    // Set the API key for the current session
+    process.env.GEMINI_API_KEY = apiKey;
+
+    console.log(colorize.green('API key saved successfully!'));
+    console.log(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
+  }
+
+  return process.env.GEMINI_API_KEY;
+}
+
+// Initialize Google Gemini client
+async function initGemini() {
+  const apiKey = await checkGeminiKey();
+  const genAI = new GoogleGenerativeAI(apiKey);
+  return genAI;
+}
+
+// Initialize AI client based on provider
+async function initAI(provider) {
+  switch (provider) {
+    case AI_PROVIDERS.OPENAI:
+      return await initOpenAI();
+    case AI_PROVIDERS.GEMINI:
+      return await initGemini();
+    default:
+      throw new Error(`Unsupported AI provider: ${provider}`);
+  }
+}
+
+// First-run setup for AI provider and model selection
+async function firstRunSetup() {
+  intro(colorize.cyan('🐦 Welcome to BlueJay!'));
+
+  console.log(colorize.blue('Let\'s set up your AI provider and model preferences.'));
+
+  // Select AI provider
+  const provider = await select({
+    message: 'Choose your AI provider:',
+    options: [
+      { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
+      { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' }
+    ]
+  });
+
+  if (isCancel(provider)) {
+    cancel('Setup cancelled');
+    process.exit(0);
+  }
+
+  // Select model based on provider
+  let model;
+  if (provider === AI_PROVIDERS.OPENAI) {
+    model = await select({
+      message: 'Choose your OpenAI model:',
+      options: OPENAI_MODELS.map(m => ({
+        value: m.value,
+        label: m.label,
+        hint: m.recommended ? 'Recommended' : undefined
+      }))
+    });
+  } else if (provider === AI_PROVIDERS.GEMINI) {
+    model = await select({
+      message: 'Choose your Google Gemini model:',
+      options: GEMINI_MODELS.map(m => ({
+        value: m.value,
+        label: m.label,
+        hint: m.recommended ? 'Recommended' : undefined
+      }))
+    });
+
+    // Handle custom model input
+    if (model === 'custom') {
+      const customModel = await text({
+        message: 'Enter your custom Gemini model name:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'Model name is required';
+        }
+      });
+
+      if (isCancel(customModel)) {
+        cancel('Setup cancelled');
+        process.exit(0);
+      }
+
+      model = customModel;
+    }
+  }
+
+  if (isCancel(model)) {
+    cancel('Setup cancelled');
+    process.exit(0);
+  }
+
+  // Update preferences
+  const updatedPreferences = {
+    ...preferences,
+    aiProvider: provider,
+    defaultModel: model
+  };
+
+  // Save preferences
+  fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
+
+  // Initialize the AI client to ensure API key is set up
+  await initAI(provider);
+
+  outro(colorize.green('✅ Setup complete! You can now use BlueJay.'));
+  console.log(colorize.blue('💡 Use "j settings" to change your preferences anytime.'));
+
+  return updatedPreferences;
+}
+
+// Settings management
+async function showSettings() {
+  intro(colorize.cyan('⚙️  BlueJay Settings'));
+
+  const action = await select({
+    message: 'What would you like to do?',
+    options: [
+      { value: 'change-provider', label: 'Change AI Provider' },
+      { value: 'change-model', label: 'Change Model' },
+      { value: 'update-openai-key', label: 'Update OpenAI API Key' },
+      { value: 'update-gemini-key', label: 'Update Google Gemini API Key' },
+      { value: 'toggle-confirmation', label: 'Toggle Command Confirmation' },
+      { value: 'toggle-colors', label: 'Toggle Colored Output' },
+      { value: 'toggle-debug', label: 'Toggle Debug Mode' },
+      { value: 'view-current', label: 'View Current Settings' }
+    ]
+  });
+
+  if (isCancel(action)) {
+    cancel('Settings cancelled');
+    return;
+  }
+
+  let updatedPreferences = { ...preferences };
+
+  switch (action) {
+    case 'change-provider':
+      const newProvider = await select({
+        message: 'Choose your AI provider:',
+        options: [
+          { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
+          { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' }
+        ]
+      });
+
+      if (!isCancel(newProvider)) {
+        updatedPreferences.aiProvider = newProvider;
+        // Reset model when changing provider
+        updatedPreferences.defaultModel = null;
+      }
+      break;
+
+    case 'change-model':
+      const models = preferences.aiProvider === AI_PROVIDERS.OPENAI ? OPENAI_MODELS : GEMINI_MODELS;
+      const newModel = await select({
+        message: `Choose your ${preferences.aiProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
+        options: models.map(m => ({
+          value: m.value,
+          label: m.label,
+          hint: m.recommended ? 'Recommended' : undefined
+        }))
+      });
+
+      if (!isCancel(newModel)) {
+        // Handle custom model for Gemini
+        if (newModel === 'custom' && preferences.aiProvider === AI_PROVIDERS.GEMINI) {
+          const customModel = await text({
+            message: 'Enter your custom Gemini model name:',
+            validate: (value) => {
+              if (!value || value.trim() === '') return 'Model name is required';
+            }
+          });
+
+          if (!isCancel(customModel)) {
+            updatedPreferences.defaultModel = customModel;
+          }
+        } else {
+          updatedPreferences.defaultModel = newModel;
+        }
+      }
+      break;
+
+    case 'update-openai-key':
+      const openaiKey = await text({
+        message: 'Enter your new OpenAI API key:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'API key is required';
+        }
+      });
+
+      if (!isCancel(openaiKey)) {
+        // Update .env file
+        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+        if (envContent.includes('OPENAI_API_KEY=')) {
+          envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${openaiKey}\n`);
+        } else {
+          envContent += `OPENAI_API_KEY=${openaiKey}\n`;
+        }
+        fs.writeFileSync(ENV_FILE_PATH, envContent);
+        process.env.OPENAI_API_KEY = openaiKey;
+        console.log(colorize.green('OpenAI API key updated successfully!'));
+      }
+      break;
+
+    case 'update-gemini-key':
+      const geminiKey = await text({
+        message: 'Enter your new Google Gemini API key:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'API key is required';
+        }
+      });
+
+      if (!isCancel(geminiKey)) {
+        // Update .env file
+        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+        if (envContent.includes('GEMINI_API_KEY=')) {
+          envContent = envContent.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${geminiKey}\n`);
+        } else {
+          envContent += `GEMINI_API_KEY=${geminiKey}\n`;
+        }
+        fs.writeFileSync(ENV_FILE_PATH, envContent);
+        process.env.GEMINI_API_KEY = geminiKey;
+        console.log(colorize.green('Google Gemini API key updated successfully!'));
+      }
+      break;
+
+    case 'toggle-confirmation':
+      updatedPreferences.showCommandConfirmation = !preferences.showCommandConfirmation;
+      console.log(colorize.green(`Command confirmation ${updatedPreferences.showCommandConfirmation ? 'enabled' : 'disabled'}`));
+      break;
+
+    case 'toggle-colors':
+      updatedPreferences.colorOutput = !preferences.colorOutput;
+      console.log(colorize.green(`Colored output ${updatedPreferences.colorOutput ? 'enabled' : 'disabled'}`));
+      break;
+
+    case 'toggle-debug':
+      updatedPreferences.debug = !preferences.debug;
+      console.log(colorize.green(`Debug mode ${updatedPreferences.debug ? 'enabled' : 'disabled'}`));
+      break;
+
+    case 'view-current':
+      console.log(colorize.blue('\n📋 Current Settings:'));
+      console.log(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
+      console.log(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
+      console.log(colorize.cyan(`Command Confirmation: ${preferences.showCommandConfirmation ? 'Enabled' : 'Disabled'}`));
+      console.log(colorize.cyan(`Colored Output: ${preferences.colorOutput ? 'Enabled' : 'Disabled'}`));
+      console.log(colorize.cyan(`Debug Mode: ${preferences.debug ? 'Enabled' : 'Disabled'}`));
+      break;
+  }
+
+  // Save updated preferences if they changed
+  if (JSON.stringify(updatedPreferences) !== JSON.stringify(preferences)) {
+    fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
+    console.log(colorize.green('Settings saved successfully!'));
+  }
+
+  outro(colorize.green('Settings updated!'));
+}
+
+// Ask AI if the input is a terminal command (works with both OpenAI and Gemini)
+async function isTerminalCommand(aiClient, userInput, provider) {
+  try {
+    const systemPrompt = 'You are a helpful assistant that runs in a terminal on a MAC OS/LINUX. Your primary goal is to interpret user input as terminal commands whenever possible. Be very liberal in your interpretation - if there is any way the user\'s request could be fulfilled with a terminal command, provide that command. Even if the request is ambiguous or could be interpreted in multiple ways, prefer to respond with a command rather than "NOT_A_COMMAND". If you provide a command, respond ONLY with the command to run, with no additional text or explanation. Only respond with "NOT_A_COMMAND" if the user\'s input is clearly not related to any possible terminal operation or file system task.';
+
+    let content;
+
+    if (provider === AI_PROVIDERS.OPENAI) {
+      const response = await aiClient.chat.completions.create({
+        model: preferences.defaultModel,
+        messages: [
+          {
+            role: 'system',
+            content: systemPrompt
+          },
+          {
+            role: 'user',
+            content: userInput
+          }
+        ],
+        temperature: 0.2,
+      });
+      content = response.choices[0].message.content;
+    } else if (provider === AI_PROVIDERS.GEMINI) {
+      // Ensure we have a valid model name
+      const modelName = preferences.defaultModel || 'gemini-2.0-flash';
+      const model = aiClient.getGenerativeModel({ model: modelName });
+      const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      content = response.text();
+    }
+
     if (content.includes('NOT_A_COMMAND')) {
       return { isCommand: false, command: null };
     } else {
@@ -156,7 +493,7 @@ async function isTerminalCommand(openai, userInput) {
       return { isCommand: true, command };
     }
   } catch (error) {
-    console.error(colorize.red('Error communicating with OpenAI:'), error.message);
+    console.error(colorize.red(`Error communicating with ${provider}:`), error.message);
     return { isCommand: false, command: null };
   }
 }
@@ -300,15 +637,37 @@ async function main() {
   try {
     // Get user input from command line arguments
     let userInput = process.argv.slice(2).join(' ');
-    let toolType;
 
-    if (!userInput) {
-      console.log(colorize.yellow('Usage: j "your request here"'));
+    // Check for settings command
+    if (userInput === 'settings') {
+      // Check if this is first run (no AI provider configured)
+      if (!preferences.aiProvider || !preferences.defaultModel) {
+        intro(colorize.cyan('🐦 Welcome to BlueJay Setup!'));
+        console.log(colorize.blue('It looks like this is your first time running BlueJay.'));
+        console.log(colorize.blue('Let\'s get you set up with your AI provider and preferences.'));
+        const setupPreferences = await firstRunSetup();
+        // After setup, show settings
+        await showSettings();
+      } else {
+        await showSettings();
+      }
       return;
     }
 
-    // Initialize OpenAI
-    const openai = await initOpenAI();
+    if (!userInput) {
+      console.log(colorize.yellow('Usage: j "your request here"'));
+      console.log(colorize.blue('Use "j settings" to configure your AI provider and preferences'));
+      return;
+    }
+
+    // Check if this is first run (no AI provider configured)
+    let currentPreferences = preferences;
+    if (!currentPreferences.aiProvider || !currentPreferences.defaultModel) {
+      currentPreferences = await firstRunSetup();
+    }
+
+    // Initialize AI client based on configured provider
+    const aiClient = await initAI(currentPreferences.aiProvider);
 
     // Create a spinner (but don't start it yet)
     const spinner = ora({
@@ -320,7 +679,7 @@ async function main() {
     spinner.start();
 
     // Determine which tool to use
-    toolType = await determineToolType(openai, userInput);
+    const toolType = await determineToolType(aiClient, userInput, currentPreferences.aiProvider);
 
     // Stop the spinner
     spinner.stop();
@@ -330,7 +689,7 @@ async function main() {
     // Run the appropriate tool
     if (toolType === TOOLS.TERMINAL) {
       // For terminal commands, we still need to get the exact command
-      const { isCommand, command } = await isTerminalCommand(openai, userInput);
+      const { isCommand, command } = await isTerminalCommand(aiClient, userInput, currentPreferences.aiProvider);
 
       if (isCommand && command) {
         console.log(colorize.green('I think you want to run this command:'));
@@ -339,16 +698,18 @@ async function main() {
         let shouldExecute = true;
 
         // Ask for confirmation if enabled in preferences
-        if (preferences.showCommandConfirmation) {
-          const { confirm } = await inquirer.prompt([
-            {
-              type: 'confirm',
-              name: 'confirm',
-              message: 'Do you want me to execute this command?',
-              default: false
-            }
-          ]);
-          shouldExecute = confirm;
+        if (currentPreferences.showCommandConfirmation) {
+          const shouldConfirm = await confirm({
+            message: 'Do you want me to execute this command?',
+            initialValue: false
+          });
+
+          if (isCancel(shouldConfirm)) {
+            cancel('Command execution cancelled');
+            return;
+          }
+
+          shouldExecute = shouldConfirm;
         }
 
         if (shouldExecute) {
