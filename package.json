@@ -1,6 +1,6 @@
 {
   "name": "@bvdr/bluejay",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A command line tool that speeds up development process using AI to interpret natural language requests and execute terminal commands",
   "main": "index.js",
   "bin": {
