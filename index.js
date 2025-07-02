@@ -14,9 +14,9 @@ const ENV_FILE_PATH = path.join(J_DIR_PATH, '.env');
 dotenv.config({ path: ENV_FILE_PATH });
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const inquirer = require('inquirer');
-const { intro, outro, text, select, confirm, spinner, isCancel, cancel } = require('@clack/prompts');
-const chalk = require('chalk');
+const inquirer                                                                 = require('inquirer');
+const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note } = require('@clack/prompts');
+const chalk                                                                    = require('chalk');
 const ora = require('ora');
 let colorize;
 const { exec, spawn } = require('child_process');
@@ -53,14 +53,14 @@ const AI_PROVIDERS = {
 };
 
 const OPENAI_MODELS = [
-  { value: 'gpt-4o', label: 'GPT-4o (Recommended)', recommended: true },
+  { value: 'gpt-4o', label: 'GPT-4o', recommended: true },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
   { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
 ];
 
 const GEMINI_MODELS = [
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash (Recommended)', recommended: true },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', recommended: true },
   { value: 'gemini-2.0-flash-light', label: 'Gemini 2.0 Flash Light' },
   { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
@@ -221,10 +221,7 @@ async function initAI(provider) {
 
 // First-run setup for AI provider and model selection
 async function firstRunSetup() {
-  intro(colorize.cyan('🐦 Welcome to BlueJay!'));
-
-  console.log(colorize.blue('Let\'s set up your AI provider and model preferences.'));
-
+  intro(colorize.cyan('🐦 Welcome to BlueJay!')+" - "+colorize.blue('Your AI assistant for the terminal'));
   // Select AI provider
   const provider = await select({
     message: 'Choose your AI provider:',
@@ -461,6 +458,35 @@ async function showSettings() {
         updatedPreferences.aiProvider = newProvider;
         // Reset model when changing provider
         updatedPreferences.defaultModel = null;
+
+        // Immediately prompt for model selection after provider change
+        const models = newProvider === AI_PROVIDERS.OPENAI ? OPENAI_MODELS : GEMINI_MODELS;
+        const newModel = await select({
+          message: `Choose your ${newProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
+          options: models.map(m => ({
+            value: m.value,
+            label: m.label,
+            hint: m.recommended ? 'Recommended' : undefined
+          }))
+        });
+
+        if (!isCancel(newModel)) {
+          // Handle custom model for Gemini
+          if (newModel === 'custom' && newProvider === AI_PROVIDERS.GEMINI) {
+            const customModel = await text({
+              message: 'Enter your custom Gemini model name:',
+              validate: (value) => {
+                if (!value || value.trim() === '') return 'Model name is required';
+              }
+            });
+
+            if (!isCancel(customModel)) {
+              updatedPreferences.defaultModel = customModel;
+            }
+          } else {
+            updatedPreferences.defaultModel = newModel;
+          }
+        }
       }
       break;
 
@@ -516,7 +542,6 @@ async function showSettings() {
   // Save updated preferences if they changed
   if (JSON.stringify(updatedPreferences) !== JSON.stringify(preferences)) {
     fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
-    console.log(colorize.green('Settings saved successfully!'));
   }
 
   outro(colorize.green('Settings updated!'));
@@ -712,12 +737,11 @@ async function main() {
     if (userInput === 'settings') {
       // Check if this is first run (no AI provider configured)
       if (!preferences.aiProvider || !preferences.defaultModel) {
-        intro(colorize.cyan('🐦 Welcome to BlueJay Setup!'));
-        console.log(colorize.blue('It looks like this is your first time running BlueJay.'));
-        console.log(colorize.blue('Let\'s get you set up with your AI provider and preferences.'));
         const setupPreferences = await firstRunSetup();
-        // After setup, show settings
-        await showSettings();
+        // Update global preferences with the setup results
+        Object.assign(preferences, setupPreferences);
+        // Exit after setup instead of showing settings
+        return;
       } else {
         await showSettings();
       }
@@ -734,6 +758,8 @@ async function main() {
     let currentPreferences = preferences;
     if (!currentPreferences.aiProvider || !currentPreferences.defaultModel) {
       currentPreferences = await firstRunSetup();
+      // Update global preferences with the setup results
+      Object.assign(preferences, currentPreferences);
     }
 
     // Initialize AI client based on configured provider
