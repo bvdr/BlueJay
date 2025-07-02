@@ -1,6 +1,7 @@
 // Tools management for BlueJay CLI
 const inquirer = require('inquirer');
 const chalk = require('chalk');
+const { log } = require('@clack/prompts');
 
 // Available tools
 const TOOLS = {
@@ -45,7 +46,7 @@ Respond ONLY with the tool identifier, no additional text.`;
       content = response.choices[0].message.content.trim();
     } else if (provider === AI_PROVIDERS.GEMINI) {
       // Use a default model if preferences aren't available
-      const modelName = 'gemini-2.0-flash'; // Updated default model
+      const modelName = 'gemini-2.5-flash'; // Updated default model
       const model = aiClient.getGenerativeModel({ model: modelName });
       const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
       const result = await model.generateContent(prompt);
@@ -59,7 +60,7 @@ Respond ONLY with the tool identifier, no additional text.`;
       return TOOLS.UNKNOWN;
     }
   } catch (error) {
-    console.error(chalk.red(`Error determining tool type with ${provider}:`), error.message);
+    log.error(chalk.red(`Error determining tool type with ${provider}:`), error.message);
     return TOOLS.UNKNOWN;
   }
 }

@@ -16,7 +16,7 @@ dotenv.config({ path: ENV_FILE_PATH });
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const inquirer                                                                 = require('inquirer');
-const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note } = require('@clack/prompts');
+const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note, log } = require('@clack/prompts');
 const chalk                                                                    = require('chalk');
 const ora = require('ora');
 let colorize;
@@ -61,7 +61,8 @@ const OPENAI_MODELS = [
 ];
 
 const GEMINI_MODELS = [
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', recommended: true },
+  { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', recommended: true },
+  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
   { value: 'gemini-2.0-flash-light', label: 'Gemini 2.0 Flash Light' },
   { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
@@ -89,7 +90,7 @@ function loadPreferences() {
       return DEFAULT_PREFERENCES;
     }
   } catch (error) {
-    console.error(colorize.yellow('Error loading preferences, using defaults:'), error.message);
+    log.error(colorize.yellow('Error loading preferences, using defaults:'), error.message);
     return DEFAULT_PREFERENCES;
   }
 }
@@ -111,14 +112,14 @@ if (!preferences.colorOutput) {
 // Debug log wrapper function
 function debugLog(message, color = 'blue') {
   if (preferences.debug) {
-    console.log(colorize[color](`DEBUG: ${message}`));
+    log.info(colorize[color](`DEBUG: ${message}`));
   }
 }
 
 // Check if OpenAI API key exists, if not prompt for it
 async function checkOpenAIKey() {
   if (!process.env.OPENAI_API_KEY) {
-    console.log(colorize.yellow('OpenAI API key not found.'));
+    log.error(colorize.yellow('OpenAI API key not found.'));
 
     const apiKey = await text({
       message: 'Please enter your OpenAI API key:',
@@ -155,8 +156,8 @@ async function checkOpenAIKey() {
     // Set the API key for the current session
     process.env.OPENAI_API_KEY = apiKey;
 
-    console.log(colorize.green('API key saved successfully!'));
-    console.log(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
+    log.success(colorize.green('API key saved successfully!'));
+    log.info(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
   }
 
   return process.env.OPENAI_API_KEY;
@@ -171,7 +172,7 @@ async function initOpenAI() {
 // Check if Google Gemini API key exists, if not prompt for it
 async function checkGeminiKey() {
   if (!process.env.GEMINI_API_KEY) {
-    console.log(colorize.yellow('Google Gemini API key not found.'));
+    log.error(colorize.yellow('Google Gemini API key not found.'));
 
     const apiKey = await text({
       message: 'Please enter your Google Gemini API key:',
@@ -208,8 +209,8 @@ async function checkGeminiKey() {
     // Set the API key for the current session
     process.env.GEMINI_API_KEY = apiKey;
 
-    console.log(colorize.green('API key saved successfully!'));
-    console.log(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
+    log.success(colorize.green('API key saved successfully!'));
+    log.info(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
   }
 
   return process.env.GEMINI_API_KEY;
@@ -400,11 +401,11 @@ async function fetchGeminiModels() {
     const latestModels = getLatestGeminiVersions(textCompletionModels);
 
     // Mark recommended model
-    const recommendedModel = latestModels.find(m => m.value === 'gemini-2.0-flash');
+    const recommendedModel = latestModels.find(m => m.value === 'gemini-2.5-flash');
     if (recommendedModel) {
       recommendedModel.recommended = true;
       // Move recommended model to the front
-      const otherModels = latestModels.filter(m => m.value !== 'gemini-2.0-flash');
+      const otherModels = latestModels.filter(m => m.value !== 'gemini-2.5-flash');
       const reorderedModels = [recommendedModel, ...otherModels];
 
       // Add custom model option
@@ -516,7 +517,7 @@ async function firstRunSetup() {
   await initAI(provider);
 
   outro(colorize.green('✅ Setup complete! You can now use BlueJay.'));
-  console.log(colorize.blue('💡 Use "j settings" to change your preferences anytime.'));
+  log.info(colorize.blue('💡 Use "j settings" to change your preferences anytime.'));
 
   return updatedPreferences;
 }
@@ -557,7 +558,7 @@ async function updateCredentials() {
         }
         fs.writeFileSync(ENV_FILE_PATH, envContent);
         process.env.OPENAI_API_KEY = openaiKey;
-        console.log(colorize.green('OpenAI API key updated successfully!'));
+        log.success(colorize.green('OpenAI API key updated successfully!'));
       }
       break;
 
@@ -579,7 +580,7 @@ async function updateCredentials() {
         }
         fs.writeFileSync(ENV_FILE_PATH, envContent);
         process.env.GEMINI_API_KEY = geminiKey;
-        console.log(colorize.green('Google Gemini API key updated successfully!'));
+        log.success(colorize.green('Google Gemini API key updated successfully!'));
       }
       break;
   }
@@ -637,7 +638,7 @@ async function managePreferences() {
 
   // Save updated preferences
   fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
-  console.log(colorize.green('Preferences updated successfully!'));
+  log.success(colorize.green('Preferences updated successfully!'));
 
   outro(colorize.green('Preferences saved!'));
 
@@ -766,13 +767,13 @@ async function showSettings() {
       break;
 
     case 'view-current':
-      console.log(colorize.blue('\n📋 Current Settings:'));
-      console.log(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
-      console.log(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
-      console.log(colorize.blue('\nPreferences:'));
-      console.log(colorize.cyan(`│  ${preferences.showCommandConfirmation ? '●' : '○'} Command Confirmation`));
-      console.log(colorize.cyan(`│  ${preferences.colorOutput ? '●' : '○'} Colored Output`));
-      console.log(colorize.cyan(`│  ${preferences.debug ? '●' : '○'} Debug Mode`));
+      log.info(colorize.blue('\n📋 Current Settings:'));
+      log.info(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
+      log.info(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
+      log.info(colorize.blue('\nPreferences:'));
+      log.info(colorize.cyan(`│  ${preferences.showCommandConfirmation ? '●' : '○'} Command Confirmation`));
+      log.info(colorize.cyan(`│  ${preferences.colorOutput ? '●' : '○'} Colored Output`));
+      log.info(colorize.cyan(`│  ${preferences.debug ? '●' : '○'} Debug Mode`));
       break;
   }
 
@@ -809,7 +810,7 @@ async function isTerminalCommand(aiClient, userInput, provider) {
       content = response.choices[0].message.content;
     } else if (provider === AI_PROVIDERS.GEMINI) {
       // Ensure we have a valid model name
-      const modelName = preferences.defaultModel || 'gemini-2.0-flash';
+      const modelName = preferences.defaultModel || 'gemini-2.5-flash';
       const model = aiClient.getGenerativeModel({ model: modelName });
       const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
       const result = await model.generateContent(prompt);
@@ -825,7 +826,7 @@ async function isTerminalCommand(aiClient, userInput, provider) {
       return { isCommand: true, command };
     }
   } catch (error) {
-    console.error(colorize.red(`Error communicating with ${provider}:`), error.message);
+    log.error(colorize.red(`Error communicating with ${provider}:`), error.message);
     return { isCommand: false, command: null };
   }
 }
@@ -986,8 +987,8 @@ async function main() {
     }
 
     if (!userInput) {
-      console.log(colorize.yellow('Usage: j "your request here"'));
-      console.log(colorize.blue('Use "j settings" to configure your AI provider and preferences'));
+      log.info(colorize.yellow('Usage: j "your request here"'));
+      log.info(colorize.blue('Use "j settings" to configure your AI provider and preferences'));
       return;
     }
 
@@ -1025,8 +1026,8 @@ async function main() {
       const { isCommand, command } = await isTerminalCommand(aiClient, userInput, currentPreferences.aiProvider);
 
       if (isCommand && command) {
-        console.log(colorize.green('I think you want to run this command:'));
-        console.log(colorize.cyan(command));
+        log.step(colorize.green('I think you want to run this command:'));
+        log.info(colorize.cyan(command));
 
         let shouldExecute = true;
 
@@ -1058,25 +1059,25 @@ async function main() {
               // Use debug log wrapper function for interactive command completion
               debugLog(`Interactive command "${command}" completed.`, 'green')
             } else {
-              console.log(colorize.green('Command executed successfully:'));
-              console.log(output);
+              log.success(colorize.green('Command executed successfully:'));
+              log.info(output);
             }
           } catch (error) {
-            console.error(colorize.red('Failed to execute command:'), error);
+            log.error(colorize.red('Failed to execute command:'), error);
           }
         } else {
-          console.log(colorize.yellow('Command execution cancelled.'));
+          log.warn(colorize.yellow('Command execution cancelled.'));
         }
       } else {
-        console.log(colorize.yellow("I couldn't determine the exact command to run."));
+        log.warn(colorize.yellow("I couldn't determine the exact command to run."));
       }
     } else {
-      console.log(colorize.yellow("I'm not sure what tool to use for your request."));
-      console.log(colorize.yellow("Available tools:"));
-      console.log(colorize.cyan("1. Terminal - for executing terminal commands"));
+      log.warn(colorize.yellow("I'm not sure what tool to use for your request."));
+      log.info(colorize.yellow("Available tools:"));
+      log.info(colorize.cyan("1. Terminal - for executing terminal commands"));
     }
   } catch (error) {
-    console.error(colorize.red('An error occurred:'), error.message);
+    log.error(colorize.red('An error occurred:'), error.message);
   }
 }
 
