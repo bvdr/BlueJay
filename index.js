@@ -181,6 +181,64 @@ function isInteractiveCommand(command) {
          hasEditorPattern;
 }
 
+// Function to detect current shell and return history file path
+function getShellHistoryPath() {
+  const shell = process.env.SHELL || '/bin/bash';
+  const shellName = path.basename(shell);
+  const homeDir = os.homedir();
+
+  switch (shellName) {
+    case 'zsh':
+      return path.join(homeDir, '.zsh_history');
+    case 'bash':
+      return path.join(homeDir, '.bash_history');
+    case 'fish':
+      return path.join(homeDir, '.local/share/fish/fish_history');
+    default:
+      // Default to bash history for unknown shells
+      return path.join(homeDir, '.bash_history');
+  }
+}
+
+// Function to add command to shell history
+function addToShellHistory(command) {
+  if (!preferences.saveCommandHistory) {
+    return;
+  }
+
+  try {
+    const historyPath = getShellHistoryPath();
+    const shell = process.env.SHELL || '/bin/bash';
+    const shellName = path.basename(shell);
+
+    let historyEntry;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    switch (shellName) {
+      case 'zsh':
+        // Zsh history format: : timestamp:0;command
+        historyEntry = `: ${timestamp}:0;${command}\n`;
+        break;
+      case 'fish':
+        // Fish history format is YAML-like
+        historyEntry = `- cmd: ${command}\n  when: ${timestamp}\n`;
+        break;
+      case 'bash':
+      default:
+        // Bash history format: just the command
+        historyEntry = `${command}\n`;
+        break;
+    }
+
+    // Append to history file
+    fs.appendFileSync(historyPath, historyEntry);
+    debugLog(`Added command to ${shellName} history: ${command}`, 'green');
+
+  } catch (error) {
+    debugLog(`Failed to add command to history: ${error.message}`, 'red');
+  }
+}
+
 // Execute a terminal command
 // We use spawn for all commands because:
 // 1. It provides better handling of interactive commands that require user input
@@ -296,6 +354,10 @@ async function main() {
         if (shouldExecute) {
           try {
             const output = await executeCommand(command);
+
+            // Add command to shell history after successful execution
+            addToShellHistory(command);
+
             // For interactive commands, the output is just a success message
             // For non-interactive commands, show the actual output
             if (command && isInteractiveCommand(command)) {
