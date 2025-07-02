@@ -104,5 +104,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'publish.yml',
-              ref: 'main'
+              ref: 'master'
             });

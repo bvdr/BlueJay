@@ -128,7 +128,6 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 This project uses GitHub Actions for automated publishing to GitHub Packages:
 
 #### Automatic Publishing
-- **On Push to Main**: The package is automatically published when code is pushed to the main branch
 - **On Release**: The package is published when a new GitHub release is created
 
 #### Manual Release Creation
