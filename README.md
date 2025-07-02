@@ -1,7 +1,7 @@
 
 <img src="https://github.com/user-attachments/assets/a964f6f2-b2b0-48b3-bdce-a328c5e13690" width=300 />
 
-# BlueJay CLI (j)
+# BlueJay (j)
 
 A command-line tool that speeds up your development process by using AI to understand and execute your requests.
 
