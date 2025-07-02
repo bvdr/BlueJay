@@ -1,8 +1,9 @@
 name: Publish Package
 
 on:
-  release:
-    types: [ published, released ]
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   publish:
@@ -12,14 +13,13 @@ jobs:
       packages: write
 
     steps:
-      - name: Debug Release Event
+      - name: Debug Tag Push Event
         run: |
           echo "Event name: ${{ github.event_name }}"
-          echo "Action: ${{ github.event.action }}"
-          echo "Release tag: ${{ github.event.release.tag_name }}"
-          echo "Release name: ${{ github.event.release.name }}"
-          echo "Release draft: ${{ github.event.release.draft }}"
-          echo "Release prerelease: ${{ github.event.release.prerelease }}"
+          echo "Ref: ${{ github.ref }}"
+          echo "Tag name: ${{ github.ref_name }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Commit SHA: ${{ github.sha }}"
 
       - name: Checkout code
         uses: actions/checkout@v4
