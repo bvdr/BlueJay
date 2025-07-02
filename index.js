@@ -507,9 +507,9 @@ async function showSettings() {
       console.log(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
       console.log(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
       console.log(colorize.blue('\nPreferences:'));
-      console.log(colorize.cyan(`│  ○ Command Confirmation`));
-      console.log(colorize.cyan(`│  ○ Colored Output`));
-      console.log(colorize.cyan(`│  ○ Debug Mode`));
+      console.log(colorize.cyan(`│  ${preferences.showCommandConfirmation ? '●' : '○'} Command Confirmation`));
+      console.log(colorize.cyan(`│  ${preferences.colorOutput ? '●' : '○'} Colored Output`));
+      console.log(colorize.cyan(`│  ${preferences.debug ? '●' : '○'} Debug Mode`));
       break;
   }
 
