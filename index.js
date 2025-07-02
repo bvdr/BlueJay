@@ -234,13 +234,69 @@ async function initAI(provider) {
   }
 }
 
+// Helper function to filter for text completion models only
+function isTextCompletionModel(modelId) {
+  // Filter out embedding, whisper, dall-e, tts, and other non-text-completion models
+  const excludePatterns = [
+    'embedding', 'whisper', 'dall-e', 'tts', 'davinci-edit', 'curie-edit',
+    'babbage-edit', 'ada-edit', 'text-moderation', 'gpt-3.5-turbo-instruct'
+  ];
+
+  return !excludePatterns.some(pattern => modelId.toLowerCase().includes(pattern)) &&
+         modelId.includes('gpt');
+}
+
+// Helper function to get latest version of each model family
+function getLatestModelVersions(models) {
+  const modelFamilies = {};
+
+  models.forEach(model => {
+    // Extract base model name (e.g., 'gpt-4o' from 'gpt-4o-2024-05-13')
+    let baseName = model.value;
+
+    // Remove date patterns (YYYY-MM-DD)
+    baseName = baseName.replace(/-\d{4}-\d{2}-\d{2}$/, '');
+
+    // Remove version patterns like -0125, -1106, -preview
+    baseName = baseName.replace(/-\d{4}$/, '');
+    baseName = baseName.replace(/-preview$/, '');
+    baseName = baseName.replace(/-turbo-\d{4}$/, '-turbo');
+
+    if (!modelFamilies[baseName]) {
+      modelFamilies[baseName] = model;
+    } else {
+      // Prefer base model names over versioned ones
+      // If current model is the base name (no suffixes), prefer it
+      // Otherwise, use lexicographic comparison for versioned models
+      const currentModel = modelFamilies[baseName];
+      const isCurrentBase = currentModel.value === baseName;
+      const isNewBase = model.value === baseName;
+
+      if (isNewBase && !isCurrentBase) {
+        // New model is base, current is versioned - prefer base
+        modelFamilies[baseName] = model;
+      } else if (!isNewBase && !isCurrentBase) {
+        // Both are versioned - use lexicographic comparison (latest date/version)
+        if (model.value > currentModel.value) {
+          modelFamilies[baseName] = model;
+        }
+      }
+      // If current is base and new is versioned, keep current (base)
+    }
+  });
+
+  return Object.values(modelFamilies);
+}
+
 // Fetch available models from OpenAI
 async function fetchOpenAIModels() {
   try {
     const client = await initOpenAI();
     const response = await client.models.list();
-    const models = response.data
-      .filter(model => model.id.includes('gpt'))
+
+    // Filter for text completion models only
+    const textCompletionModels = response.data
+      .filter(model => isTextCompletionModel(model.id))
       .map(model => ({
         value: model.id,
         label: model.id.toUpperCase().replace(/-/g, ' '),
@@ -248,21 +304,56 @@ async function fetchOpenAIModels() {
       }))
       .sort((a, b) => a.value.localeCompare(b.value));
 
+    // Get only latest versions of each model family
+    const latestModels = getLatestModelVersions(textCompletionModels);
+
     // Mark recommended model
-    const recommendedModel = models.find(m => m.value === 'gpt-4o');
+    const recommendedModel = latestModels.find(m => m.value === 'gpt-4o');
     if (recommendedModel) {
       recommendedModel.recommended = true;
       // Move recommended model to the front
-      const otherModels = models.filter(m => m.value !== 'gpt-4o');
+      const otherModels = latestModels.filter(m => m.value !== 'gpt-4o');
       return [recommendedModel, ...otherModels];
     }
 
-    return models;
+    return latestModels;
   } catch (error) {
     debugLog(`Failed to fetch OpenAI models: ${error.message}`, 'yellow');
     // Fallback to hardcoded models
     return OPENAI_MODELS;
   }
+}
+
+// Helper function to filter for Gemini text completion models only
+function isGeminiTextCompletionModel(modelName) {
+  // Filter for models that support text generation (generateContent)
+  // Exclude embedding or other specialized models
+  const excludePatterns = ['embedding', 'vision', 'audio'];
+
+  return modelName.includes('gemini') &&
+         modelName.includes('generateContent') &&
+         !excludePatterns.some(pattern => modelName.toLowerCase().includes(pattern));
+}
+
+// Helper function to get latest Gemini model versions
+function getLatestGeminiVersions(models) {
+  const modelFamilies = {};
+
+  models.forEach(model => {
+    // Extract base model name (e.g., 'gemini-2.0-flash' from 'gemini-2.0-flash-001')
+    let baseName = model.value;
+
+    // Remove version suffixes like -001, -002, etc.
+    baseName = baseName.replace(/-\d{3}$/, '');
+
+    // For Gemini models, we want to keep the most recent version
+    // Use lexicographic comparison which works well for Gemini versioning
+    if (!modelFamilies[baseName] || model.value > modelFamilies[baseName].value) {
+      modelFamilies[baseName] = model;
+    }
+  });
+
+  return Object.values(modelFamilies);
 }
 
 // Fetch available models from Google Gemini
@@ -291,8 +382,9 @@ async function fetchGeminiModels() {
       throw new Error('No models returned from Gemini API');
     }
 
-    const geminiModels = data.models
-      .filter(model => model.name.includes('gemini') && model.name.includes('generateContent'))
+    // Filter for text completion models only
+    const textCompletionModels = data.models
+      .filter(model => isGeminiTextCompletionModel(model.name))
       .map(model => {
         const modelId = model.name.split('/').pop();
         return {
@@ -305,19 +397,27 @@ async function fetchGeminiModels() {
       })
       .sort((a, b) => a.value.localeCompare(b.value));
 
+    // Get only latest versions of each model family
+    const latestModels = getLatestGeminiVersions(textCompletionModels);
+
     // Mark recommended model
-    const recommendedModel = geminiModels.find(m => m.value === 'gemini-2.0-flash');
+    const recommendedModel = latestModels.find(m => m.value === 'gemini-2.0-flash');
     if (recommendedModel) {
       recommendedModel.recommended = true;
       // Move recommended model to the front
-      const otherModels = geminiModels.filter(m => m.value !== 'gemini-2.0-flash');
-      geminiModels.splice(0, geminiModels.length, recommendedModel, ...otherModels);
+      const otherModels = latestModels.filter(m => m.value !== 'gemini-2.0-flash');
+      const reorderedModels = [recommendedModel, ...otherModels];
+
+      // Add custom model option
+      reorderedModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
+
+      return reorderedModels;
     }
 
     // Add custom model option
-    geminiModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
+    latestModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
 
-    return geminiModels;
+    return latestModels;
   } catch (error) {
     debugLog(`Failed to fetch Gemini models: ${error.message}`, 'yellow');
     // Fallback to hardcoded models
