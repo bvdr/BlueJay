@@ -41,5 +41,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - API keys stored locally and never transmitted except to OpenAI
 - Secure handling of sensitive configuration data
 
-[Unreleased]: https://github.com/bvdr/JarvisAI-CLI/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/bvdr/JarvisAI-CLI/releases/tag/v1.0.0
+[Unreleased]: https://github.com/bvdr/BlueJay/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/bvdr/BlueJay/releases/tag/v1.0.0

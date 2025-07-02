@@ -24,8 +24,8 @@ A command-line tool that speeds up your development process by using AI to under
 
 ```bash
 # Clone the repository
-git clone https://github.com/bvdr/JarvisAI-CLI.git
-cd JarvisAI-CLI
+git clone https://github.com/bvdr/BlueJay.git
+cd BlueJay
 
 # Install dependencies
 npm install
@@ -39,27 +39,27 @@ After installation, you can use the `j` command from anywhere in your terminal.
 ## Usage
 
 ```bash
-# Ask Jarvis to list files in the current directory
+# Ask BlueJay to list files in the current directory
 j "list all the files in this folder"
 
-# Ask Jarvis to create a new directory
+# Ask BlueJay to create a new directory
 j "create a new directory called my-project"
 
-# Ask Jarvis for help with a git command
+# Ask BlueJay for help with a git command
 j "how do I revert my last commit"
 
-# Ask Jarvis to help with file operations
+# Ask BlueJay to help with file operations
 j "find all JavaScript files in this directory"
 
-# Ask Jarvis to help with system tasks
+# Ask BlueJay to help with system tasks
 j "show me the current disk usage"
 ```
 
 ## Configuration
 
-On first run, Jarvis will ask for your OpenAI API key, which will be stored securely in the `~/.j/.env` file in your home directory.
+On first run, BlueJay will ask for your OpenAI API key, which will be stored securely in the `~/.j/.env` file in your home directory.
 
-You can customize Jarvis by editing the `.j-preferences` file in your home directory or in your current project directory (local preferences take precedence).
+You can customize BlueJay by editing the `.j-preferences` file in the `~/.j/` directory or in your current project directory (local preferences take precedence).
 
 ## Available Settings
 
@@ -87,17 +87,17 @@ The `.j-preferences` file contains the following settings:
 
 ## How It Works
 
-Jarvis CLI uses AI to interpret your natural language requests and convert them into terminal commands. Here's the process:
+BlueJay CLI uses AI to interpret your natural language requests and convert them into terminal commands. Here's the process:
 
 1. **Input Processing**: You provide a natural language request
 2. **AI Analysis**: The AI analyzes your request to determine if it can be fulfilled with a terminal command
 3. **Command Generation**: If applicable, the AI generates the appropriate terminal command
-4. **Confirmation**: By default, Jarvis shows you the command and asks for confirmation before execution
+4. **Confirmation**: By default, BlueJay shows you the command and asks for confirmation before execution
 5. **Execution**: Upon confirmation, the command is executed with proper handling for both interactive and non-interactive commands
 
 ### Interactive vs Non-Interactive Commands
 
-Jarvis automatically detects whether a command is interactive (like `vim`, `nano`, `ssh`) and handles them appropriately:
+BlueJay automatically detects whether a command is interactive (like `vim`, `nano`, `ssh`) and handles them appropriately:
 - **Interactive commands**: Full terminal control is passed to the command
 - **Non-interactive commands**: Output is captured and displayed after execution
 
@@ -108,7 +108,7 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 ### Development Setup
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/your-username/JarvisAI-CLI.git`
+2. Clone your fork: `git clone https://github.com/your-username/BlueJay.git`
 3. Install dependencies: `npm install`
 4. Make your changes
 5. Test your changes locally
@@ -116,7 +116,7 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 
 ## Issues
 
-If you encounter any problems or have feature requests, please [open an issue](https://github.com/bvdr/JarvisAI-CLI/issues) on GitHub.
+If you encounter any problems or have feature requests, please [open an issue](https://github.com/bvdr/BlueJay/issues) on GitHub.
 
 ## Security
 

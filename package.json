@@ -1,5 +1,5 @@
 {
-  "name": "jarvis-cli",
+  "name": "bluejay-cli",
   "version": "1.0.0",
   "description": "A command line tool that speeds up development process using AI to interpret natural language requests and execute terminal commands",
   "main": "index.js",
@@ -22,11 +22,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/bvdr/JarvisAI-CLI.git"
+    "url": "https://github.com/bvdr/BlueJay.git"
   },
-  "homepage": "https://github.com/bvdr/JarvisAI-CLI#readme",
+  "homepage": "https://github.com/bvdr/BlueJay#readme",
   "bugs": {
-    "url": "https://github.com/bvdr/JarvisAI-CLI/issues"
+    "url": "https://github.com/bvdr/BlueJay/issues"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

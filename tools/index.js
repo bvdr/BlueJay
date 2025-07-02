@@ -1,4 +1,4 @@
-// Tools management for Jarvis CLI
+// Tools management for BlueJay CLI
 const inquirer = require('inquirer');
 const chalk = require('chalk');
 
