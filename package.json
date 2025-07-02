@@ -38,6 +38,9 @@
   "bugs": {
     "url": "https://github.com/bvdr/BlueJay/issues"
   },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "dotenv": "^16.4.5",
     "openai": "^4.67.3",
