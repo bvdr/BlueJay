@@ -955,12 +955,12 @@ function executeCommand(command) {
           resolve(stdout);
         }
       } else {
-        reject(`Command exited with code ${code}`);
+        reject({ code, message: `Command exited with code ${code}` });
       }
     });
 
     childProcess.on('error', (error) => {
-      reject(`Error: ${error.message}`);
+      reject({ code: 1, message: `Error: ${error.message}` });
     });
   });
 }
@@ -1063,7 +1063,7 @@ async function main() {
               log.info(output);
             }
           } catch (error) {
-            log.error(colorize.red('Failed to execute command:'), error);
+            log.error(colorize.red('Failed to execute command:'), error.message);
           }
         } else {
           log.warn(colorize.yellow('Command execution cancelled.'));
