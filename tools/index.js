@@ -12,7 +12,8 @@ const TOOLS = {
 // AI Provider configurations (imported from main)
 const AI_PROVIDERS = {
   OPENAI: 'openai',
-  GEMINI: 'gemini'
+  GEMINI: 'gemini',
+  ANTHROPIC: 'anthropic'
 };
 
 // Determine which tool to use based on user input (works with both OpenAI and Gemini)
@@ -52,6 +53,20 @@ Respond ONLY with the tool identifier, no additional text.`;
       const result = await model.generateContent(prompt);
       const response = await result.response;
       content = response.text().trim();
+    } else if (provider === AI_PROVIDERS.ANTHROPIC) {
+      const response = await aiClient.messages.create({
+        model: 'claude-sonnet-4-5-20250929', // Default model
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userInput
+          }
+        ],
+        temperature: 0.2,
+      });
+      content = response.content[0].text.trim();
     }
 
     if (content.includes('TOOL:TERMINAL')) {

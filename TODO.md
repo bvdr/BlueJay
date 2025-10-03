@@ -1,0 +1,82 @@
+# BlueJay Onboarding Improvements - TODO
+
+## Implementation Checklist
+
+### Task 1: Add Anthropic Claude as AI Provider
+- [ ] Install @anthropic-ai/sdk dependency
+- [ ] Implement Anthropic client integration
+- [ ] Add to provider selection menu
+- [ ] Support model fetching and selection
+- [ ] Add API key validation
+- [ ] Update all AI routing logic (initAI, isTerminalCommand, determineToolType)
+- [ ] Test with Anthropic API
+- **GitHub Issue:** https://github.com/bvdr/BlueJay/issues/5
+- **Branch:** `feature/anthropic-provider`
+- **Status:** In Progress
+
+### Task 2: Simplify Model Selection (5 Models Per Provider)
+- [ ] Define hardcoded model lists for Anthropic
+- [ ] Define hardcoded model lists for Google Gemini
+- [ ] Define hardcoded model lists for OpenAI
+- [ ] Mark recommended model for each provider
+- [ ] Replace dynamic fetching with static lists
+- [ ] Update model selection UI
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/simplified-model-selection`
+- **Status:** Not Started
+
+### Task 3: Add Password Masking for API Key Input
+- [ ] Implement secure input with masked characters (••••••)
+- [ ] Apply to OpenAI API key prompt
+- [ ] Apply to Google Gemini API key prompt
+- [ ] Apply to Anthropic API key prompt
+- [ ] Test masking behavior
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/password-masking`
+- **Status:** Not Started
+
+### Task 4: Add --help Flag Support
+- [ ] Create comprehensive help screen
+- [ ] Add examples and use cases
+- [ ] Include API key links for all 3 providers (OpenAI, Gemini, Anthropic)
+- [ ] Display current configuration status
+- [ ] Handle -h, --help, and help variants
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/help-command`
+- **Status:** Not Started
+
+### Task 5: Enhance Empty Command Response
+- [ ] Show configuration status prominently
+- [ ] Add contextual guidance based on setup state
+- [ ] Display quick examples for configured users
+- [ ] Guide new users to setup process
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/enhanced-empty-command`
+- **Status:** Not Started
+
+### Task 6: Improve First-Run Setup Context
+- [ ] Add welcome screen explaining the setup process
+- [ ] Set user expectations (time, requirements)
+- [ ] Show benefits of configuration
+- [ ] Add provider comparison information
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/setup-context`
+- **Status:** Not Started
+
+### Task 7: Enhance API Key Prompts
+- [ ] Add direct links for OpenAI API keys
+- [ ] Add direct links for Gemini API keys
+- [ ] Add direct links for Anthropic API keys
+- [ ] Include cost estimates per provider
+- [ ] Explain secure storage location
+- **GitHub Issue:** [To be created]
+- **Branch:** `feature/enhanced-api-prompts`
+- **Status:** Not Started
+
+---
+
+## Progress Tracking
+- **Total Tasks:** 7
+- **Completed:** 0
+- **In Progress:** 0
+- **Not Started:** 7
