@@ -22,6 +22,7 @@ const ora = require('ora');
 let colorize;
 const { exec, spawn } = require('child_process');
 const { determineToolType, runTool, TOOLS } = require('./tools');
+const { checkForUpdates } = require('./utils/update-checker');
 
 // Setup colorize function (defined early for error handling)
 colorize = {
@@ -903,9 +904,29 @@ ${colorize.cyan('QUICK REFERENCE')}
   console.log('');
 }
 
+// Get package version
+const packageJson = require('./package.json');
+const CURRENT_VERSION = packageJson.version;
+
+// Show update notification if available
+async function showUpdateNotification() {
+  try {
+    const { updateAvailable, latestVersion } = await checkForUpdates(CURRENT_VERSION);
+
+    if (updateAvailable && latestVersion) {
+      console.log('');
+      log.info(colorize.yellow(`🐦 A new BlueJay has arrived! ${CURRENT_VERSION} → ${latestVersion}`));
+      log.info(colorize.cyan(`   Run: npm install -g @bvdr/bluejay@latest`));
+      console.log('');
+    }
+  } catch (error) {
+    // Silently fail - don't interrupt user's workflow
+  }
+}
+
 // Show help information
 function showHelp() {
-  const version = '1.1.1';
+  const version = CURRENT_VERSION;
 
   console.log('');
   note(
@@ -964,6 +985,11 @@ ${colorize.cyan('SETTINGS MANAGEMENT')}
 // Main function
 async function main() {
   try {
+    // Check for updates asynchronously (non-blocking)
+    showUpdateNotification().catch(() => {
+      // Silently ignore errors
+    });
+
     // Get user input from command line arguments
     let userInput = process.argv.slice(2).join(' ');
 
