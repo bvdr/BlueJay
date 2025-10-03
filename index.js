@@ -663,7 +663,7 @@ async function showSettings() {
 }
 
 // Ask AI if the input is a terminal command (works with both OpenAI and Gemini)
-async function isTerminalCommand(aiClient, userInput, provider) {
+async function isTerminalCommand(aiClient, userInput, provider, defaultModel) {
   try {
     const systemPrompt = 'You are a helpful assistant that runs in a terminal on a MAC OS/LINUX. Your primary goal is to interpret user input as terminal commands whenever possible. Be very liberal in your interpretation - if there is any way the user\'s request could be fulfilled with a terminal command, provide that command. Even if the request is ambiguous or could be interpreted in multiple ways, prefer to respond with a command rather than "NOT_A_COMMAND". If you provide a command, respond ONLY with the command to run, with no additional text or explanation. Only respond with "NOT_A_COMMAND" if the user\'s input is clearly not related to any possible terminal operation or file system task.';
 
@@ -671,7 +671,7 @@ async function isTerminalCommand(aiClient, userInput, provider) {
 
     if (provider === AI_PROVIDERS.OPENAI) {
       const response = await aiClient.chat.completions.create({
-        model: preferences.defaultModel,
+        model: defaultModel,
         messages: [
           {
             role: 'system',
@@ -687,7 +687,7 @@ async function isTerminalCommand(aiClient, userInput, provider) {
       content = response.choices[0].message.content;
     } else if (provider === AI_PROVIDERS.GEMINI) {
       // Ensure we have a valid model name
-      const modelName = preferences.defaultModel || 'gemini-2.5-flash';
+      const modelName = defaultModel || 'gemini-2.5-flash';
       const model = aiClient.getGenerativeModel({ model: modelName });
       const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
       const result = await model.generateContent(prompt);
@@ -695,7 +695,7 @@ async function isTerminalCommand(aiClient, userInput, provider) {
       content = response.text();
     } else if (provider === AI_PROVIDERS.ANTHROPIC) {
       const response = await aiClient.messages.create({
-        model: preferences.defaultModel,
+        model: defaultModel,
         max_tokens: 1024,
         system: systemPrompt,
         messages: [
@@ -1041,7 +1041,7 @@ async function main() {
     spinner.start();
 
     // Determine which tool to use
-    const toolType = await determineToolType(aiClient, userInput, currentPreferences.aiProvider);
+    const toolType = await determineToolType(aiClient, userInput, currentPreferences.aiProvider, currentPreferences.defaultModel);
 
     // Stop the spinner
     spinner.stop();
@@ -1051,7 +1051,7 @@ async function main() {
     // Run the appropriate tool
     if (toolType === TOOLS.TERMINAL) {
       // For terminal commands, we still need to get the exact command
-      const { isCommand, command } = await isTerminalCommand(aiClient, userInput, currentPreferences.aiProvider);
+      const { isCommand, command } = await isTerminalCommand(aiClient, userInput, currentPreferences.aiProvider, currentPreferences.defaultModel);
 
       if (isCommand && command) {
         log.step(colorize.green('I think you want to run this command:'));
