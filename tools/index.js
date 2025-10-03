@@ -17,7 +17,7 @@ const AI_PROVIDERS = {
 };
 
 // Determine which tool to use based on user input (works with both OpenAI and Gemini)
-async function determineToolType(aiClient, userInput, provider) {
+async function determineToolType(aiClient, userInput, provider, defaultModel) {
   try {
     const systemPrompt = `You are a helpful assistant that determines which tool a user wants to use based on their input.
 Available tools:
@@ -31,7 +31,7 @@ Respond ONLY with the tool identifier, no additional text.`;
 
     if (provider === AI_PROVIDERS.OPENAI) {
       const response = await aiClient.chat.completions.create({
-        model: 'gpt-4o', // Default model, will be overridden by preferences
+        model: defaultModel || 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -47,7 +47,7 @@ Respond ONLY with the tool identifier, no additional text.`;
       content = response.choices[0].message.content.trim();
     } else if (provider === AI_PROVIDERS.GEMINI) {
       // Use a default model if preferences aren't available
-      const modelName = 'gemini-2.5-flash'; // Updated default model
+      const modelName = defaultModel || 'gemini-2.5-flash';
       const model = aiClient.getGenerativeModel({ model: modelName });
       const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
       const result = await model.generateContent(prompt);
@@ -55,7 +55,7 @@ Respond ONLY with the tool identifier, no additional text.`;
       content = response.text().trim();
     } else if (provider === AI_PROVIDERS.ANTHROPIC) {
       const response = await aiClient.messages.create({
-        model: 'claude-sonnet-4-5-20250929', // Default model
+        model: defaultModel || 'claude-sonnet-4-5-20250929',
         max_tokens: 1024,
         system: systemPrompt,
         messages: [
