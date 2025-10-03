@@ -119,9 +119,27 @@ We welcome contributions! Please feel free to submit a Pull Request. For major c
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/your-username/BlueJay.git`
 3. Install dependencies: `npm install`
-4. Make your changes
-5. Test your changes locally: `node test-package.js`
-6. Submit a pull request
+4. Link for local development: `npm run dev`
+   - This creates a symlink so the global `j` command uses your local code
+   - Make changes and test immediately without reinstalling
+5. Make your changes
+6. Test your changes:
+   - `npm run test:local` - Test without global installation
+   - `npm run validate` - Validate package structure
+7. Clean up test configuration (optional):
+   - `npm run clean` - Interactive cleanup of API keys and preferences
+   - `npm run clean:prefs` - Remove only preferences
+   - `npm run clean:env` - Remove only API keys
+8. Submit a pull request
+
+**Development Commands:**
+- `npm run dev` - Link local code for live development
+- `npm run dev:unlink` - Remove development symlink
+- `npm run test:local` - Test local version without installing
+- `npm run validate` - Validate package configuration
+- `npm run clean` - Interactive cleanup utility
+- `npm run clean:prefs` - Remove preference files only
+- `npm run clean:env` - Remove API key files only
 
 ### Publishing (Maintainers Only)
 
