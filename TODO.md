@@ -17,27 +17,31 @@
 
 ### Task 2: Simplify Model Selection (5 Models Per Provider)
 - [x] Define hardcoded model lists for Anthropic (completed in Task 1)
-- [ ] Update hardcoded model list for Google Gemini (5 models)
-- [ ] Update hardcoded model list for OpenAI (5 models)
-- [ ] Remove fetchOpenAIModels() function
-- [ ] Remove fetchGeminiModels() function
-- [ ] Remove helper functions (isTextCompletionModel, getLatestModelVersions, etc)
-- [ ] Update firstRunSetup() to use hardcoded models
-- [ ] Update showSettings() to use hardcoded models
-- [ ] Test all 3 providers with new model lists
+- [x] Update hardcoded model list for Google Gemini (5 models)
+- [x] Update hardcoded model list for OpenAI (5 models)
+- [x] Remove fetchOpenAIModels() function
+- [x] Remove fetchGeminiModels() function
+- [x] Remove helper functions (isTextCompletionModel, getLatestModelVersions, etc)
+- [x] Update firstRunSetup() to use hardcoded models
+- [x] Update showSettings() to use hardcoded models
+- [x] Test all 3 providers with new model lists
 - **GitHub Issue:** https://github.com/bvdr/BlueJay/issues/7
+- **Pull Request:** https://github.com/bvdr/BlueJay/pull/8
 - **Branch:** `feature/simplified-model-selection`
-- **Status:** In Progress
+- **Status:** ✅ Completed - Merged
 
 ### Task 3: Add Password Masking for API Key Input
-- [ ] Implement secure input with masked characters (••••••)
-- [ ] Apply to OpenAI API key prompt
-- [ ] Apply to Google Gemini API key prompt
-- [ ] Apply to Anthropic API key prompt
-- [ ] Test masking behavior
-- **GitHub Issue:** [To be created]
+- [ ] Import password() from @clack/prompts
+- [ ] Update checkOpenAIKey() to use password() instead of text()
+- [ ] Update checkGeminiKey() to use password() instead of text()
+- [ ] Update checkAnthropicKey() to use password() instead of text()
+- [ ] Update updateCredentials() OpenAI case to use password()
+- [ ] Update updateCredentials() Gemini case to use password()
+- [ ] Update updateCredentials() Anthropic case to use password()
+- [ ] Test masking behavior for all providers
+- **GitHub Issue:** https://github.com/bvdr/BlueJay/issues/9
 - **Branch:** `feature/password-masking`
-- **Status:** Not Started
+- **Status:** In Progress
 
 ### Task 4: Add --help Flag Support
 - [ ] Create comprehensive help screen
@@ -81,9 +85,10 @@
 
 ## Progress Tracking
 - **Total Tasks:** 7
-- **Completed:** 1
+- **Completed:** 2
 - **In Progress:** 0
-- **Not Started:** 6
+- **Not Started:** 5
 
 ## Completed Tasks
 1. ✅ Task 1: Add Anthropic Claude as AI Provider - PR #6
+2. ✅ Task 2: Simplify Model Selection (5 Models Per Provider) - PR #8
