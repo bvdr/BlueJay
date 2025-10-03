@@ -16,7 +16,7 @@ const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const Anthropic = require('@anthropic-ai/sdk');
 const inquirer                                                                 = require('inquirer');
-const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note, log } = require('@clack/prompts');
+const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note, log, password } = require('@clack/prompts');
 const chalk                                                                    = require('chalk');
 const ora = require('ora');
 let colorize;
@@ -129,7 +129,7 @@ async function checkOpenAIKey() {
   if (!process.env.OPENAI_API_KEY) {
     log.error(colorize.yellow('OpenAI API key not found.'));
 
-    const apiKey = await text({
+    const apiKey = await password({
       message: 'Please enter your OpenAI API key:',
       validate: (value) => {
         if (!value || value.trim() === '') return 'API key is required';
@@ -182,7 +182,7 @@ async function checkGeminiKey() {
   if (!process.env.GEMINI_API_KEY) {
     log.error(colorize.yellow('Google Gemini API key not found.'));
 
-    const apiKey = await text({
+    const apiKey = await password({
       message: 'Please enter your Google Gemini API key:',
       validate: (value) => {
         if (!value || value.trim() === '') return 'API key is required';
@@ -236,7 +236,7 @@ async function checkAnthropicKey() {
   if (!process.env.ANTHROPIC_API_KEY) {
     log.error(colorize.yellow('Anthropic API key not found.'));
 
-    const apiKey = await text({
+    const apiKey = await password({
       message: 'Please enter your Anthropic API key:',
       validate: (value) => {
         if (!value || value.trim() === '') return 'API key is required';
@@ -401,7 +401,7 @@ async function updateCredentials() {
 
   switch (credentialAction) {
     case 'update-openai-key':
-      const openaiKey = await text({
+      const openaiKey = await password({
         message: 'Enter your new OpenAI API key:',
         validate: (value) => {
           if (!value || value.trim() === '') return 'API key is required';
@@ -423,7 +423,7 @@ async function updateCredentials() {
       break;
 
     case 'update-gemini-key':
-      const geminiKey = await text({
+      const geminiKey = await password({
         message: 'Enter your new Google Gemini API key:',
         validate: (value) => {
           if (!value || value.trim() === '') return 'API key is required';
@@ -445,7 +445,7 @@ async function updateCredentials() {
       break;
 
     case 'update-anthropic-key':
-      const anthropicKey = await text({
+      const anthropicKey = await password({
         message: 'Enter your new Anthropic API key:',
         validate: (value) => {
           if (!value || value.trim() === '') return 'API key is required';
