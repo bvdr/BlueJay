@@ -392,13 +392,18 @@ async function updateCredentials() {
     options: [
       { value: 'update-openai-key', label: 'Update OpenAI API Key' },
       { value: 'update-gemini-key', label: 'Update Google Gemini API Key' },
-      { value: 'update-anthropic-key', label: 'Update Anthropic API Key' }
+      { value: 'update-anthropic-key', label: 'Update Anthropic API Key' },
+      { value: 'back', label: '← Back to Settings' }
     ]
   });
 
   if (isCancel(credentialAction)) {
     cancel('Credential update cancelled');
-    return;
+    return 'back';
+  }
+
+  if (credentialAction === 'back') {
+    return 'back';
   }
 
   switch (credentialAction) {
@@ -410,18 +415,20 @@ async function updateCredentials() {
         }
       });
 
-      if (!isCancel(openaiKey)) {
-        // Update .env file
-        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
-        if (envContent.includes('OPENAI_API_KEY=')) {
-          envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${openaiKey}\n`);
-        } else {
-          envContent += `OPENAI_API_KEY=${openaiKey}\n`;
-        }
-        fs.writeFileSync(ENV_FILE_PATH, envContent);
-        process.env.OPENAI_API_KEY = openaiKey;
-        log.success(colorize.green('OpenAI API key updated successfully!'));
+      if (isCancel(openaiKey)) {
+        return 'back';
       }
+
+      // Update .env file
+      let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+      if (envContent.includes('OPENAI_API_KEY=')) {
+        envContent = envContent.replace(/OPENAI_API_KEY=.*\n?/, `OPENAI_API_KEY=${openaiKey}\n`);
+      } else {
+        envContent += `OPENAI_API_KEY=${openaiKey}\n`;
+      }
+      fs.writeFileSync(ENV_FILE_PATH, envContent);
+      process.env.OPENAI_API_KEY = openaiKey;
+      log.success(colorize.green('OpenAI API key updated successfully!'));
       break;
 
     case 'update-gemini-key':
@@ -432,18 +439,20 @@ async function updateCredentials() {
         }
       });
 
-      if (!isCancel(geminiKey)) {
-        // Update .env file
-        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
-        if (envContent.includes('GEMINI_API_KEY=')) {
-          envContent = envContent.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${geminiKey}\n`);
-        } else {
-          envContent += `GEMINI_API_KEY=${geminiKey}\n`;
-        }
-        fs.writeFileSync(ENV_FILE_PATH, envContent);
-        process.env.GEMINI_API_KEY = geminiKey;
-        log.success(colorize.green('Google Gemini API key updated successfully!'));
+      if (isCancel(geminiKey)) {
+        return 'back';
       }
+
+      // Update .env file
+      let envContent2 = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+      if (envContent2.includes('GEMINI_API_KEY=')) {
+        envContent2 = envContent2.replace(/GEMINI_API_KEY=.*\n?/, `GEMINI_API_KEY=${geminiKey}\n`);
+      } else {
+        envContent2 += `GEMINI_API_KEY=${geminiKey}\n`;
+      }
+      fs.writeFileSync(ENV_FILE_PATH, envContent2);
+      process.env.GEMINI_API_KEY = geminiKey;
+      log.success(colorize.green('Google Gemini API key updated successfully!'));
       break;
 
     case 'update-anthropic-key':
@@ -454,22 +463,25 @@ async function updateCredentials() {
         }
       });
 
-      if (!isCancel(anthropicKey)) {
-        // Update .env file
-        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
-        if (envContent.includes('ANTHROPIC_API_KEY=')) {
-          envContent = envContent.replace(/ANTHROPIC_API_KEY=.*\n?/, `ANTHROPIC_API_KEY=${anthropicKey}\n`);
-        } else {
-          envContent += `ANTHROPIC_API_KEY=${anthropicKey}\n`;
-        }
-        fs.writeFileSync(ENV_FILE_PATH, envContent);
-        process.env.ANTHROPIC_API_KEY = anthropicKey;
-        log.success(colorize.green('Anthropic API key updated successfully!'));
+      if (isCancel(anthropicKey)) {
+        return 'back';
       }
+
+      // Update .env file
+      let envContent3 = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+      if (envContent3.includes('ANTHROPIC_API_KEY=')) {
+        envContent3 = envContent3.replace(/ANTHROPIC_API_KEY=.*\n?/, `ANTHROPIC_API_KEY=${anthropicKey}\n`);
+      } else {
+        envContent3 += `ANTHROPIC_API_KEY=${anthropicKey}\n`;
+      }
+      fs.writeFileSync(ENV_FILE_PATH, envContent3);
+      process.env.ANTHROPIC_API_KEY = anthropicKey;
+      log.success(colorize.green('Anthropic API key updated successfully!'));
       break;
   }
 
   outro(colorize.green('Credentials updated!'));
+  return 'continue';
 }
 
 // Preferences management with checkboxes
@@ -531,38 +543,48 @@ async function managePreferences() {
 
 // Settings management
 async function showSettings() {
-  intro(colorize.cyan('⚙️  BlueJay Settings'));
+  while (true) {
+    intro(colorize.cyan('⚙️  BlueJay Settings'));
 
-  const action = await select({
-    message: 'What would you like to do?',
-    options: [
-      { value: 'change-provider', label: `AI Provider: ${preferences.aiProvider || 'Not set'}` },
-      { value: 'change-model', label: `Model: ${preferences.defaultModel || 'Not set'}` },
-      { value: 'update-credentials', label: 'Update Credentials' },
-      { value: 'preferences', label: 'Preferences' },
-      { value: 'view-current', label: 'View Current Settings' }
-    ]
-  });
+    const action = await select({
+      message: 'What would you like to do?',
+      options: [
+        { value: 'change-provider', label: `AI Provider: ${preferences.aiProvider || 'Not set'}` },
+        { value: 'change-model', label: `Model: ${preferences.defaultModel || 'Not set'}` },
+        { value: 'update-credentials', label: 'Update Credentials' },
+        { value: 'preferences', label: 'Preferences' },
+        { value: 'view-current', label: 'View Current Settings' },
+        { value: 'exit', label: '← Exit Settings' }
+      ]
+    });
 
-  if (isCancel(action)) {
-    cancel('Settings cancelled');
-    return;
-  }
+    if (isCancel(action)) {
+      cancel('Settings cancelled');
+      return;
+    }
 
-  let updatedPreferences = { ...preferences };
+    if (action === 'exit') {
+      outro(colorize.green('Settings closed'));
+      return;
+    }
 
-  switch (action) {
-    case 'change-provider':
-      const newProvider = await select({
-        message: 'Choose your AI provider:',
-        options: [
-          { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
-          { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' },
-          { value: AI_PROVIDERS.ANTHROPIC, label: 'Anthropic (Claude models)' }
-        ]
-      });
+    let updatedPreferences = { ...preferences };
 
-      if (!isCancel(newProvider)) {
+    switch (action) {
+      case 'change-provider':
+        const newProvider = await select({
+          message: 'Choose your AI provider:',
+          options: [
+            { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
+            { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' },
+            { value: AI_PROVIDERS.ANTHROPIC, label: 'Anthropic (Claude models)' }
+          ]
+        });
+
+        if (isCancel(newProvider)) {
+          continue; // Go back to settings menu
+        }
+
         updatedPreferences.aiProvider = newProvider;
         // Reset model when changing provider
         updatedPreferences.defaultModel = null;
@@ -603,63 +625,70 @@ async function showSettings() {
         if (!isCancel(newModel)) {
           updatedPreferences.defaultModel = newModel;
         }
-      }
-      break;
+        break;
 
-    case 'change-model':
-      let models2;
-      let providerLabel2;
+      case 'change-model':
+        let models2;
+        let providerLabel2;
 
-      if (preferences.aiProvider === AI_PROVIDERS.OPENAI) {
-        models2 = OPENAI_MODELS;
-        providerLabel2 = 'OpenAI';
-      } else if (preferences.aiProvider === AI_PROVIDERS.GEMINI) {
-        models2 = GEMINI_MODELS;
-        providerLabel2 = 'Google Gemini';
-      } else if (preferences.aiProvider === AI_PROVIDERS.ANTHROPIC) {
-        models2 = ANTHROPIC_MODELS;
-        providerLabel2 = 'Anthropic Claude';
-      }
+        if (preferences.aiProvider === AI_PROVIDERS.OPENAI) {
+          models2 = OPENAI_MODELS;
+          providerLabel2 = 'OpenAI';
+        } else if (preferences.aiProvider === AI_PROVIDERS.GEMINI) {
+          models2 = GEMINI_MODELS;
+          providerLabel2 = 'Google Gemini';
+        } else if (preferences.aiProvider === AI_PROVIDERS.ANTHROPIC) {
+          models2 = ANTHROPIC_MODELS;
+          providerLabel2 = 'Anthropic Claude';
+        }
 
-      const newModel = await select({
-        message: `Choose your ${providerLabel2} model:`,
-        options: models2.map(m => ({
-          value: m.value,
-          label: m.label,
-          hint: m.recommended ? 'Recommended' : undefined
-        }))
-      });
+        const newModel2 = await select({
+          message: `Choose your ${providerLabel2} model:`,
+          options: models2.map(m => ({
+            value: m.value,
+            label: m.label,
+            hint: m.recommended ? 'Recommended' : undefined
+          }))
+        });
 
-      if (!isCancel(newModel)) {
-        updatedPreferences.defaultModel = newModel;
-      }
-      break;
+        if (isCancel(newModel2)) {
+          continue; // Go back to settings menu
+        }
 
-    case 'update-credentials':
-      await updateCredentials();
-      break;
+        updatedPreferences.defaultModel = newModel2;
+        break;
 
-    case 'preferences':
-      updatedPreferences = await managePreferences();
-      break;
+      case 'update-credentials':
+        const credResult = await updateCredentials();
+        if (credResult === 'back') {
+          continue; // Go back to settings menu
+        }
+        break;
 
-    case 'view-current':
-      log.info(colorize.blue('\n📋 Current Settings:'));
-      log.info(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
-      log.info(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
-      log.info(colorize.blue('\nPreferences:'));
-      log.info(colorize.cyan(`│  ${preferences.showCommandConfirmation ? '●' : '○'} Command Confirmation`));
-      log.info(colorize.cyan(`│  ${preferences.colorOutput ? '●' : '○'} Colored Output`));
-      log.info(colorize.cyan(`│  ${preferences.debug ? '●' : '○'} Debug Mode`));
-      break;
+      case 'preferences':
+        updatedPreferences = await managePreferences();
+        break;
+
+      case 'view-current':
+        log.info(colorize.blue('\n📋 Current Settings:'));
+        log.info(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
+        log.info(colorize.cyan(`Default Model: ${preferences.defaultModel || 'Not set'}`));
+        log.info(colorize.blue('\nPreferences:'));
+        log.info(colorize.cyan(`│  ${preferences.showCommandConfirmation ? '●' : '○'} Command Confirmation`));
+        log.info(colorize.cyan(`│  ${preferences.colorOutput ? '●' : '○'} Colored Output`));
+        log.info(colorize.cyan(`│  ${preferences.debug ? '●' : '○'} Debug Mode`));
+        break;
+    }
+
+    // Save updated preferences if they changed
+    if (JSON.stringify(updatedPreferences) !== JSON.stringify(preferences)) {
+      fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
+      // Update the global preferences object
+      Object.assign(preferences, updatedPreferences);
+    }
+
+    outro(colorize.green('Settings updated!'));
   }
-
-  // Save updated preferences if they changed
-  if (JSON.stringify(updatedPreferences) !== JSON.stringify(preferences)) {
-    fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
-  }
-
-  outro(colorize.green('Settings updated!'));
 }
 
 // Ask AI if the input is a terminal command (works with both OpenAI and Gemini)
