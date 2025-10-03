@@ -854,11 +854,75 @@ function executeCommand(command) {
   });
 }
 
+// Show help information
+function showHelp() {
+  const version = '1.1.1';
+
+  console.log('');
+  note(
+    `${colorize.blue('BlueJay CLI')} - AI-powered terminal assistant v${version}
+
+${colorize.cyan('USAGE')}
+  j "your natural language request"
+  j settings              Configure AI provider and preferences
+  j --help | -h | help    Show this help screen
+
+${colorize.cyan('EXAMPLES')}
+  j "list files in current directory"
+  j "find all .js files modified in last week"
+  j "show system information"
+  j "create a new directory called projects"
+  j "search for 'TODO' in all files"
+
+${colorize.cyan('CONFIGURATION')}`,
+    'Help'
+  );
+
+  // Show current configuration if it exists
+  if (preferences.aiProvider && preferences.defaultModel) {
+    log.info(colorize.green('Current Setup:'));
+    log.info(colorize.cyan(`  Provider: ${preferences.aiProvider}`));
+    log.info(colorize.cyan(`  Model: ${preferences.defaultModel}`));
+    log.info(colorize.cyan(`  Command Confirmation: ${preferences.showCommandConfirmation ? 'Enabled' : 'Disabled'}`));
+    log.info(colorize.cyan(`  Colored Output: ${preferences.colorOutput ? 'Enabled' : 'Disabled'}`));
+    log.info('');
+  } else {
+    log.info(colorize.yellow('  Not configured yet - run "j settings" to get started'));
+    log.info('');
+  }
+
+  // API Key Resources
+  note(
+    `${colorize.cyan('API KEY RESOURCES')}
+  OpenAI:    https://platform.openai.com/api-keys
+  Gemini:    https://aistudio.google.com/app/apikey
+  Anthropic: https://console.anthropic.com/settings/keys
+
+${colorize.cyan('SETTINGS MANAGEMENT')}
+  Run "j settings" to:
+  • Change AI provider (OpenAI / Gemini / Anthropic)
+  • Select different models
+  • Update API keys
+  • Toggle command confirmation
+  • Enable/disable colored output
+  • Configure debug mode`,
+    'Resources'
+  );
+
+  console.log('');
+}
+
 // Main function
 async function main() {
   try {
     // Get user input from command line arguments
     let userInput = process.argv.slice(2).join(' ');
+
+    // Check for help flag
+    if (userInput === '--help' || userInput === '-h' || userInput === 'help') {
+      showHelp();
+      return;
+    }
 
     // Check for settings command
     if (userInput === 'settings') {
