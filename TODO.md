@@ -3,16 +3,17 @@
 ## Implementation Checklist
 
 ### Task 1: Add Anthropic Claude as AI Provider
-- [ ] Install @anthropic-ai/sdk dependency
-- [ ] Implement Anthropic client integration
-- [ ] Add to provider selection menu
-- [ ] Support model fetching and selection
-- [ ] Add API key validation
-- [ ] Update all AI routing logic (initAI, isTerminalCommand, determineToolType)
-- [ ] Test with Anthropic API
+- [x] Install @anthropic-ai/sdk dependency
+- [x] Implement Anthropic client integration
+- [x] Add to provider selection menu
+- [x] Support model fetching and selection
+- [x] Add API key validation
+- [x] Update all AI routing logic (initAI, isTerminalCommand, determineToolType)
+- [x] Test with Anthropic API
 - **GitHub Issue:** https://github.com/bvdr/BlueJay/issues/5
+- **Pull Request:** https://github.com/bvdr/BlueJay/pull/6
 - **Branch:** `feature/anthropic-provider`
-- **Status:** In Progress
+- **Status:** ✅ Completed - Ready to Merge
 
 ### Task 2: Simplify Model Selection (5 Models Per Provider)
 - [ ] Define hardcoded model lists for Anthropic
@@ -77,6 +78,9 @@
 
 ## Progress Tracking
 - **Total Tasks:** 7
-- **Completed:** 0
+- **Completed:** 1
 - **In Progress:** 0
-- **Not Started:** 7
+- **Not Started:** 6
+
+## Completed Tasks
+1. ✅ Task 1: Add Anthropic Claude as AI Provider - PR #6
