@@ -854,6 +854,55 @@ function executeCommand(command) {
   });
 }
 
+// Show enhanced empty command help
+function showEmptyCommandHelp() {
+  console.log('');
+
+  if (!preferences.aiProvider || !preferences.defaultModel) {
+    // Unconfigured state - guide to setup
+    note(
+      `${colorize.blue('Welcome to BlueJay!')} 🐦
+
+Your AI-powered terminal assistant.
+
+${colorize.cyan('GET STARTED')}
+  Run: ${colorize.green('j settings')}
+
+This will help you:
+  • Choose your AI provider (OpenAI, Gemini, or Anthropic)
+  • Select your preferred model
+  • Configure your API key
+  • Set your preferences
+
+${colorize.cyan('LEARN MORE')}
+  Run: ${colorize.green('j --help')}`,
+      'Getting Started'
+    );
+  } else {
+    // Configured state - show quick reference
+    note(
+      `${colorize.green('Ready to assist!')} 🐦
+
+${colorize.cyan('CURRENT SETUP')}
+  Provider: ${preferences.aiProvider}
+  Model: ${preferences.defaultModel}
+
+${colorize.cyan('TRY THESE COMMANDS')}
+  ${colorize.green('j "list files in current directory"')}
+  ${colorize.green('j "show system information"')}
+  ${colorize.green('j "find all .js files"')}
+  ${colorize.green('j "create a directory called projects"')}
+
+${colorize.cyan('QUICK REFERENCE')}
+  ${colorize.blue('j settings')}  - Configure provider and preferences
+  ${colorize.blue('j --help')}    - View full documentation`,
+      'BlueJay CLI'
+    );
+  }
+
+  console.log('');
+}
+
 // Show help information
 function showHelp() {
   const version = '1.1.1';
@@ -940,8 +989,7 @@ async function main() {
     }
 
     if (!userInput) {
-      log.info(colorize.yellow('Usage: j "your request here"'));
-      log.info(colorize.blue('Use "j settings" to configure your AI provider and preferences'));
+      showEmptyCommandHelp();
       return;
     }
 
