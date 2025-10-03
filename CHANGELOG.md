@@ -1,3 +1,14 @@
+## [1.2.0] - 2025-10-03
+
+### Added
+- Automatic update checker with subtle notifications
+- Enhanced empty command response with contextual guidance
+- Usage hint after setup completion
+- Comprehensive --help flag support
+
+### Fixed
+- Improved user experience with better onboarding and help messaging
+
 ## [1.1.1] - 2025-07-07
 
 ### Added
