@@ -9,6 +9,7 @@
   "files": [
     "index.js",
     "tools/",
+    "utils/",
     "scripts/",
     "README.md",
     "LICENSE",

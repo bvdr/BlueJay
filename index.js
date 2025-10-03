@@ -22,6 +22,7 @@ const ora = require('ora');
 let colorize;
 const { exec, spawn } = require('child_process');
 const { determineToolType, runTool, TOOLS } = require('./tools');
+const { checkForUpdates } = require('./utils/update-checker');
 
 // Setup colorize function (defined early for error handling)
 colorize = {
@@ -376,6 +377,7 @@ async function firstRunSetup() {
   await initAI(provider);
 
   outro(colorize.green('✅ Setup complete! You can now use BlueJay.'));
+  log.info(colorize.blue('💡 Try: j "list files in current directory"'));
   log.info(colorize.blue('💡 Use "j settings" to change your preferences anytime.'));
 
   return updatedPreferences;
@@ -854,9 +856,78 @@ function executeCommand(command) {
   });
 }
 
+// Show enhanced empty command help
+function showEmptyCommandHelp() {
+  console.log('');
+
+  if (!preferences.aiProvider || !preferences.defaultModel) {
+    // Unconfigured state - guide to setup
+    note(
+      `${colorize.blue('Welcome to BlueJay!')} 🐦
+
+Your AI-powered terminal assistant.
+
+${colorize.cyan('GET STARTED')}
+  Run: ${colorize.green('j settings')}
+
+This will help you:
+  • Choose your AI provider (OpenAI, Gemini, or Anthropic)
+  • Select your preferred model
+  • Configure your API key
+  • Set your preferences
+
+${colorize.cyan('LEARN MORE')}
+  Run: ${colorize.green('j --help')}`,
+      'Getting Started'
+    );
+  } else {
+    // Configured state - show quick reference
+    note(
+      `${colorize.green('Ready to assist!')} 🐦
+
+${colorize.cyan('CURRENT SETUP')}
+  Provider: ${preferences.aiProvider}
+  Model: ${preferences.defaultModel}
+
+${colorize.cyan('TRY THESE COMMANDS')}
+  ${colorize.green('j "list files in current directory"')}
+  ${colorize.green('j "show system information"')}
+  ${colorize.green('j "find all .js files"')}
+  ${colorize.green('j "create a directory called projects"')}
+
+${colorize.cyan('QUICK REFERENCE')}
+  ${colorize.blue('j settings')}  - Configure provider and preferences
+  ${colorize.blue('j --help')}    - View full documentation`,
+      'BlueJay CLI'
+    );
+  }
+
+  console.log('');
+}
+
+// Get package version
+const packageJson = require('./package.json');
+const CURRENT_VERSION = packageJson.version;
+
+// Show update notification if available
+async function showUpdateNotification() {
+  try {
+    const { updateAvailable, latestVersion } = await checkForUpdates(CURRENT_VERSION);
+
+    if (updateAvailable && latestVersion) {
+      console.log('');
+      log.info(colorize.yellow(`🐦 A new BlueJay has arrived! ${CURRENT_VERSION} → ${latestVersion}`));
+      log.info(colorize.cyan(`   Run: npm install -g @bvdr/bluejay@latest`));
+      console.log('');
+    }
+  } catch (error) {
+    // Silently fail - don't interrupt user's workflow
+  }
+}
+
 // Show help information
 function showHelp() {
-  const version = '1.1.1';
+  const version = CURRENT_VERSION;
 
   console.log('');
   note(
@@ -915,6 +986,11 @@ ${colorize.cyan('SETTINGS MANAGEMENT')}
 // Main function
 async function main() {
   try {
+    // Check for updates asynchronously (non-blocking)
+    showUpdateNotification().catch(() => {
+      // Silently ignore errors
+    });
+
     // Get user input from command line arguments
     let userInput = process.argv.slice(2).join(' ');
 
@@ -940,8 +1016,7 @@ async function main() {
     }
 
     if (!userInput) {
-      log.info(colorize.yellow('Usage: j "your request here"'));
-      log.info(colorize.blue('Use "j settings" to configure your AI provider and preferences'));
+      showEmptyCommandHelp();
       return;
     }
 
