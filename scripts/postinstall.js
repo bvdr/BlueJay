@@ -7,7 +7,32 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Show welcome message
+function showWelcome() {
+  console.log('');
+  console.log(chalk.cyan('┌─────────────────────────────────────────┐'));
+  console.log(chalk.cyan('│') + '  ' + chalk.blue('🐦 Welcome to BlueJay!') + '          ' + chalk.cyan('│'));
+  console.log(chalk.cyan('│') + '                                         ' + chalk.cyan('│'));
+  console.log(chalk.cyan('│') + '  Your AI-powered terminal assistant     ' + chalk.cyan('│'));
+  console.log(chalk.cyan('└─────────────────────────────────────────┘'));
+  console.log('');
+  console.log(chalk.blue('GET STARTED'));
+  console.log(chalk.white('  Run: ') + chalk.green('j settings'));
+  console.log('');
+  console.log(chalk.white('  This will help you:'));
+  console.log(chalk.white('    • Choose your AI provider'));
+  console.log(chalk.white('    • Select your preferred model'));
+  console.log(chalk.white('    • Configure your API key'));
+  console.log('');
+  console.log(chalk.blue('LEARN MORE'));
+  console.log(chalk.white('  Run: ') + chalk.green('j --help'));
+  console.log('');
+}
+
 async function checkForConflicts() {
+  // Show welcome message first
+  showWelcome();
+
   console.log(chalk.blue('🔍 Checking for existing "j" command conflicts...'));
 
   return new Promise((resolve) => {

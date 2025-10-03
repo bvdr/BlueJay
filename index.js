@@ -856,6 +856,30 @@ function executeCommand(command) {
   });
 }
 
+// Show welcome message
+function showWelcomeMessage() {
+  console.log('');
+  note(
+    `${colorize.blue('Welcome to BlueJay!')} 🐦 v${CURRENT_VERSION}
+
+Your AI-powered terminal assistant.
+
+${colorize.cyan('GET STARTED')}
+  Run: ${colorize.green('j settings')}
+
+This will help you:
+  • Choose your AI provider (OpenAI, Gemini, or Anthropic)
+  • Select your preferred model
+  • Configure your API key
+  • Set your preferences
+
+${colorize.cyan('LEARN MORE')}
+  Run: ${colorize.green('j --help')}`,
+    'Getting Started'
+  );
+  console.log('');
+}
+
 // Show enhanced empty command help
 function showEmptyCommandHelp() {
   console.log('');
@@ -994,6 +1018,12 @@ async function main() {
     // Get user input from command line arguments
     let userInput = process.argv.slice(2).join(' ');
 
+    // Check for version flag
+    if (userInput === '-v' || userInput === '--version') {
+      console.log(CURRENT_VERSION);
+      return;
+    }
+
     // Check for help flag
     if (userInput === '--help' || userInput === '-h' || userInput === 'help') {
       showHelp();
@@ -1108,6 +1138,9 @@ async function main() {
     log.error(colorize.red('An error occurred:'), error.message);
   }
 }
+
+// Export for postinstall script
+module.exports = { showWelcomeMessage };
 
 // Run the main function
 main();
