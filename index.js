@@ -15,6 +15,7 @@ const ENV_FILE_PATH = path.join(J_DIR_PATH, '.env');
 dotenv.config({ path: ENV_FILE_PATH });
 const { OpenAI } = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const Anthropic = require('@anthropic-ai/sdk');
 const inquirer                                                                 = require('inquirer');
 const { intro, outro, text, select, confirm, spinner, isCancel, cancel, note, log } = require('@clack/prompts');
 const chalk                                                                    = require('chalk');
@@ -50,7 +51,8 @@ const DEFAULT_PREFERENCES = {
 // AI Provider configurations
 const AI_PROVIDERS = {
   OPENAI: 'openai',
-  GEMINI: 'gemini'
+  GEMINI: 'gemini',
+  ANTHROPIC: 'anthropic'
 };
 
 const OPENAI_MODELS = [
@@ -68,6 +70,14 @@ const GEMINI_MODELS = [
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
   { value: 'gemini-pro', label: 'Gemini Pro' },
   { value: 'custom', label: 'Custom Model (Enter manually)' }
+];
+
+const ANTHROPIC_MODELS = [
+  { value: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', recommended: true },
+  { value: 'claude-opus-4-20250514', label: 'Claude Opus 4' },
+  { value: 'claude-3-7-sonnet-20250219', label: 'Claude 3.7 Sonnet' },
+  { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku' },
+  { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet' }
 ];
 
 // Load preferences
@@ -223,6 +233,59 @@ async function initGemini() {
   return genAI;
 }
 
+// Check if Anthropic API key exists, if not prompt for it
+async function checkAnthropicKey() {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    log.error(colorize.yellow('Anthropic API key not found.'));
+
+    const apiKey = await text({
+      message: 'Please enter your Anthropic API key:',
+      validate: (value) => {
+        if (!value || value.trim() === '') return 'API key is required';
+      }
+    });
+
+    if (isCancel(apiKey)) {
+      cancel('Setup cancelled');
+      process.exit(0);
+    }
+
+    // Ensure the .j directory exists
+    if (!fs.existsSync(J_DIR_PATH)) {
+      fs.mkdirSync(J_DIR_PATH, { recursive: true });
+    }
+
+    // Read existing .env content
+    let envContent = '';
+    if (fs.existsSync(ENV_FILE_PATH)) {
+      envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+    }
+
+    // Add or update Anthropic API key
+    if (envContent.includes('ANTHROPIC_API_KEY=')) {
+      envContent = envContent.replace(/ANTHROPIC_API_KEY=.*\n?/, `ANTHROPIC_API_KEY=${apiKey}\n`);
+    } else {
+      envContent += `ANTHROPIC_API_KEY=${apiKey}\n`;
+    }
+
+    fs.writeFileSync(ENV_FILE_PATH, envContent);
+
+    // Set the API key for the current session
+    process.env.ANTHROPIC_API_KEY = apiKey;
+
+    log.success(colorize.green('API key saved successfully!'));
+    log.info(colorize.blue('Your API key has been securely stored in ~/.j/.env'));
+  }
+
+  return process.env.ANTHROPIC_API_KEY;
+}
+
+// Initialize Anthropic client
+async function initAnthropic() {
+  const apiKey = await checkAnthropicKey();
+  return new Anthropic({ apiKey });
+}
+
 // Initialize AI client based on provider
 async function initAI(provider) {
   switch (provider) {
@@ -230,6 +293,8 @@ async function initAI(provider) {
       return await initOpenAI();
     case AI_PROVIDERS.GEMINI:
       return await initGemini();
+    case AI_PROVIDERS.ANTHROPIC:
+      return await initAnthropic();
     default:
       throw new Error(`Unsupported AI provider: ${provider}`);
   }
@@ -433,7 +498,8 @@ async function firstRunSetup() {
     message: 'Choose your AI provider:',
     options: [
       { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
-      { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' }
+      { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' },
+      { value: AI_PROVIDERS.ANTHROPIC, label: 'Anthropic (Claude models)' }
     ]
   });
 
@@ -447,6 +513,8 @@ async function firstRunSetup() {
     await checkOpenAIKey();
   } else if (provider === AI_PROVIDERS.GEMINI) {
     await checkGeminiKey();
+  } else if (provider === AI_PROVIDERS.ANTHROPIC) {
+    await checkAnthropicKey();
   }
 
   // Select model based on provider
@@ -496,6 +564,15 @@ async function firstRunSetup() {
 
       model = customModel;
     }
+  } else if (provider === AI_PROVIDERS.ANTHROPIC) {
+    model = await select({
+      message: 'Choose your Anthropic Claude model:',
+      options: ANTHROPIC_MODELS.map(m => ({
+        value: m.value,
+        label: m.label,
+        hint: m.recommended ? 'Recommended' : undefined
+      }))
+    });
   }
 
   if (isCancel(model)) {
@@ -530,7 +607,8 @@ async function updateCredentials() {
     message: 'Which API key would you like to update?',
     options: [
       { value: 'update-openai-key', label: 'Update OpenAI API Key' },
-      { value: 'update-gemini-key', label: 'Update Google Gemini API Key' }
+      { value: 'update-gemini-key', label: 'Update Google Gemini API Key' },
+      { value: 'update-anthropic-key', label: 'Update Anthropic API Key' }
     ]
   });
 
@@ -581,6 +659,28 @@ async function updateCredentials() {
         fs.writeFileSync(ENV_FILE_PATH, envContent);
         process.env.GEMINI_API_KEY = geminiKey;
         log.success(colorize.green('Google Gemini API key updated successfully!'));
+      }
+      break;
+
+    case 'update-anthropic-key':
+      const anthropicKey = await text({
+        message: 'Enter your new Anthropic API key:',
+        validate: (value) => {
+          if (!value || value.trim() === '') return 'API key is required';
+        }
+      });
+
+      if (!isCancel(anthropicKey)) {
+        // Update .env file
+        let envContent = fs.existsSync(ENV_FILE_PATH) ? fs.readFileSync(ENV_FILE_PATH, 'utf8') : '';
+        if (envContent.includes('ANTHROPIC_API_KEY=')) {
+          envContent = envContent.replace(/ANTHROPIC_API_KEY=.*\n?/, `ANTHROPIC_API_KEY=${anthropicKey}\n`);
+        } else {
+          envContent += `ANTHROPIC_API_KEY=${anthropicKey}\n`;
+        }
+        fs.writeFileSync(ENV_FILE_PATH, envContent);
+        process.env.ANTHROPIC_API_KEY = anthropicKey;
+        log.success(colorize.green('Anthropic API key updated successfully!'));
       }
       break;
   }
@@ -673,7 +773,8 @@ async function showSettings() {
         message: 'Choose your AI provider:',
         options: [
           { value: AI_PROVIDERS.OPENAI, label: 'OpenAI (GPT models)' },
-          { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' }
+          { value: AI_PROVIDERS.GEMINI, label: 'Google Gemini' },
+          { value: AI_PROVIDERS.ANTHROPIC, label: 'Anthropic (Claude models)' }
         ]
       });
 
@@ -687,16 +788,33 @@ async function showSettings() {
           await checkOpenAIKey();
         } else if (newProvider === AI_PROVIDERS.GEMINI) {
           await checkGeminiKey();
+        } else if (newProvider === AI_PROVIDERS.ANTHROPIC) {
+          await checkAnthropicKey();
         }
 
         // Immediately prompt for model selection after provider change
-        const s = spinner();
-        s.start(`Fetching available ${newProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Gemini'} models...`);
-        const models = newProvider === AI_PROVIDERS.OPENAI ? await fetchOpenAIModels() : await fetchGeminiModels();
-        s.stop('Models fetched successfully');
+        let models;
+        let providerLabel;
+
+        if (newProvider === AI_PROVIDERS.OPENAI) {
+          const s = spinner();
+          s.start('Fetching available OpenAI models...');
+          models = await fetchOpenAIModels();
+          s.stop('Models fetched successfully');
+          providerLabel = 'OpenAI';
+        } else if (newProvider === AI_PROVIDERS.GEMINI) {
+          const s = spinner();
+          s.start('Fetching available Gemini models...');
+          models = await fetchGeminiModels();
+          s.stop('Models fetched successfully');
+          providerLabel = 'Google Gemini';
+        } else if (newProvider === AI_PROVIDERS.ANTHROPIC) {
+          models = ANTHROPIC_MODELS;
+          providerLabel = 'Anthropic Claude';
+        }
 
         const newModel = await select({
-          message: `Choose your ${newProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
+          message: `Choose your ${providerLabel} model:`,
           options: models.map(m => ({
             value: m.value,
             label: m.label,
@@ -725,14 +843,29 @@ async function showSettings() {
       break;
 
     case 'change-model':
-      const s2 = spinner();
-      s2.start(`Fetching available ${preferences.aiProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Gemini'} models...`);
-      const models = preferences.aiProvider === AI_PROVIDERS.OPENAI ? await fetchOpenAIModels() : await fetchGeminiModels();
-      s2.stop('Models fetched successfully');
+      let models2;
+      let providerLabel2;
+
+      if (preferences.aiProvider === AI_PROVIDERS.OPENAI) {
+        const s2 = spinner();
+        s2.start('Fetching available OpenAI models...');
+        models2 = await fetchOpenAIModels();
+        s2.stop('Models fetched successfully');
+        providerLabel2 = 'OpenAI';
+      } else if (preferences.aiProvider === AI_PROVIDERS.GEMINI) {
+        const s2 = spinner();
+        s2.start('Fetching available Gemini models...');
+        models2 = await fetchGeminiModels();
+        s2.stop('Models fetched successfully');
+        providerLabel2 = 'Google Gemini';
+      } else if (preferences.aiProvider === AI_PROVIDERS.ANTHROPIC) {
+        models2 = ANTHROPIC_MODELS;
+        providerLabel2 = 'Anthropic Claude';
+      }
 
       const newModel = await select({
-        message: `Choose your ${preferences.aiProvider === AI_PROVIDERS.OPENAI ? 'OpenAI' : 'Google Gemini'} model:`,
-        options: models.map(m => ({
+        message: `Choose your ${providerLabel2} model:`,
+        options: models2.map(m => ({
           value: m.value,
           label: m.label,
           hint: m.recommended ? 'Recommended' : undefined
@@ -816,6 +949,20 @@ async function isTerminalCommand(aiClient, userInput, provider) {
       const result = await model.generateContent(prompt);
       const response = await result.response;
       content = response.text();
+    } else if (provider === AI_PROVIDERS.ANTHROPIC) {
+      const response = await aiClient.messages.create({
+        model: preferences.defaultModel,
+        max_tokens: 1024,
+        system: systemPrompt,
+        messages: [
+          {
+            role: 'user',
+            content: userInput
+          }
+        ],
+        temperature: 0.2,
+      });
+      content = response.content[0].text;
     }
 
     if (content.includes('NOT_A_COMMAND')) {
