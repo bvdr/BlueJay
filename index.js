@@ -5,7 +5,6 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const https = require('https');
 
 // Define paths early for dotenv configuration
 const J_DIR_PATH = path.join(os.homedir(), '.j');
@@ -59,17 +58,16 @@ const OPENAI_MODELS = [
   { value: 'gpt-4o', label: 'GPT-4o', recommended: true },
   { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
   { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' }
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  { value: 'o1-preview', label: 'O1 Preview' }
 ];
 
 const GEMINI_MODELS = [
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', recommended: true },
-  { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-  { value: 'gemini-2.0-flash-light', label: 'Gemini 2.0 Flash Light' },
+  { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
   { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' },
   { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-  { value: 'gemini-pro', label: 'Gemini Pro' },
-  { value: 'custom', label: 'Custom Model (Enter manually)' }
+  { value: 'gemini-1.0-pro', label: 'Gemini 1.0 Pro' }
 ];
 
 const ANTHROPIC_MODELS = [
@@ -300,195 +298,6 @@ async function initAI(provider) {
   }
 }
 
-// Helper function to filter for text completion models only
-function isTextCompletionModel(modelId) {
-  // Filter out embedding, whisper, dall-e, tts, and other non-text-completion models
-  const excludePatterns = [
-    'embedding', 'whisper', 'dall-e', 'tts', 'davinci-edit', 'curie-edit',
-    'babbage-edit', 'ada-edit', 'text-moderation', 'gpt-3.5-turbo-instruct'
-  ];
-
-  return !excludePatterns.some(pattern => modelId.toLowerCase().includes(pattern)) &&
-         modelId.includes('gpt');
-}
-
-// Helper function to get latest version of each model family
-function getLatestModelVersions(models) {
-  const modelFamilies = {};
-
-  models.forEach(model => {
-    // Extract base model name (e.g., 'gpt-4o' from 'gpt-4o-2024-05-13')
-    let baseName = model.value;
-
-    // Remove date patterns (YYYY-MM-DD)
-    baseName = baseName.replace(/-\d{4}-\d{2}-\d{2}$/, '');
-
-    // Remove version patterns like -0125, -1106, -preview
-    baseName = baseName.replace(/-\d{4}$/, '');
-    baseName = baseName.replace(/-preview$/, '');
-    baseName = baseName.replace(/-turbo-\d{4}$/, '-turbo');
-
-    if (!modelFamilies[baseName]) {
-      modelFamilies[baseName] = model;
-    } else {
-      // Prefer base model names over versioned ones
-      // If current model is the base name (no suffixes), prefer it
-      // Otherwise, use lexicographic comparison for versioned models
-      const currentModel = modelFamilies[baseName];
-      const isCurrentBase = currentModel.value === baseName;
-      const isNewBase = model.value === baseName;
-
-      if (isNewBase && !isCurrentBase) {
-        // New model is base, current is versioned - prefer base
-        modelFamilies[baseName] = model;
-      } else if (!isNewBase && !isCurrentBase) {
-        // Both are versioned - use lexicographic comparison (latest date/version)
-        if (model.value > currentModel.value) {
-          modelFamilies[baseName] = model;
-        }
-      }
-      // If current is base and new is versioned, keep current (base)
-    }
-  });
-
-  return Object.values(modelFamilies);
-}
-
-// Fetch available models from OpenAI
-async function fetchOpenAIModels() {
-  try {
-    const client = await initOpenAI();
-    const response = await client.models.list();
-
-    // Filter for text completion models only
-    const textCompletionModels = response.data
-      .filter(model => isTextCompletionModel(model.id))
-      .map(model => ({
-        value: model.id,
-        label: model.id.toUpperCase().replace(/-/g, ' '),
-        recommended: false
-      }))
-      .sort((a, b) => a.value.localeCompare(b.value));
-
-    // Get only latest versions of each model family
-    const latestModels = getLatestModelVersions(textCompletionModels);
-
-    // Mark recommended model
-    const recommendedModel = latestModels.find(m => m.value === 'gpt-4o');
-    if (recommendedModel) {
-      recommendedModel.recommended = true;
-      // Move recommended model to the front
-      const otherModels = latestModels.filter(m => m.value !== 'gpt-4o');
-      return [recommendedModel, ...otherModels];
-    }
-
-    return latestModels;
-  } catch (error) {
-    debugLog(`Failed to fetch OpenAI models: ${error.message}`, 'yellow');
-    // Fallback to hardcoded models
-    return OPENAI_MODELS;
-  }
-}
-
-// Helper function to filter for Gemini text completion models only
-function isGeminiTextCompletionModel(modelName) {
-  // Filter for models that support text generation
-  // Exclude embedding or other specialized models
-  const excludePatterns = ['embedding', 'vision', 'audio'];
-
-  return modelName.includes('gemini') &&
-         !excludePatterns.some(pattern => modelName.toLowerCase().includes(pattern));
-}
-
-// Helper function to get latest Gemini model versions
-function getLatestGeminiVersions(models) {
-  const modelFamilies = {};
-
-  models.forEach(model => {
-    // Extract base model name (e.g., 'gemini-2.0-flash' from 'gemini-2.0-flash-001')
-    let baseName = model.value;
-
-    // Remove version suffixes like -001, -002, etc.
-    baseName = baseName.replace(/-\d{3}$/, '');
-
-    // For Gemini models, we want to keep the most recent version
-    // Use lexicographic comparison which works well for Gemini versioning
-    if (!modelFamilies[baseName] || model.value > modelFamilies[baseName].value) {
-      modelFamilies[baseName] = model;
-    }
-  });
-
-  return Object.values(modelFamilies);
-}
-
-// Fetch available models from Google Gemini
-async function fetchGeminiModels() {
-  try {
-    const client = await initGemini();
-
-    // Use the REST API to list models since the SDK doesn't have a direct listModels method
-    const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${process.env.GEMINI_API_KEY}`;
-
-    const data = await new Promise((resolve, reject) => {
-      https.get(url, (res) => {
-        let body = '';
-        res.on('data', (chunk) => body += chunk);
-        res.on('end', () => {
-          try {
-            resolve(JSON.parse(body));
-          } catch (e) {
-            reject(e);
-          }
-        });
-      }).on('error', reject);
-    });
-
-    if (!data.models) {
-      throw new Error('No models returned from Gemini API');
-    }
-
-    // Filter for text completion models only
-    const textCompletionModels = data.models
-      .filter(model => isGeminiTextCompletionModel(model.name))
-      .map(model => {
-        const modelId = model.name.split('/').pop();
-        return {
-          value: modelId,
-          label: modelId.split('-').map(word =>
-            word.charAt(0).toUpperCase() + word.slice(1)
-          ).join(' '),
-          recommended: false
-        };
-      })
-      .sort((a, b) => a.value.localeCompare(b.value));
-
-    // Get only latest versions of each model family
-    const latestModels = getLatestGeminiVersions(textCompletionModels);
-
-    // Mark recommended model
-    const recommendedModel = latestModels.find(m => m.value === 'gemini-2.5-flash');
-    if (recommendedModel) {
-      recommendedModel.recommended = true;
-      // Move recommended model to the front
-      const otherModels = latestModels.filter(m => m.value !== 'gemini-2.5-flash');
-      const reorderedModels = [recommendedModel, ...otherModels];
-
-      // Add custom model option
-      reorderedModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
-
-      return reorderedModels;
-    }
-
-    // Add custom model option
-    latestModels.push({ value: 'custom', label: 'Custom Model (Enter manually)' });
-
-    return latestModels;
-  } catch (error) {
-    debugLog(`Failed to fetch Gemini models: ${error.message}`, 'yellow');
-    // Fallback to hardcoded models
-    return GEMINI_MODELS;
-  }
-}
 
 // First-run setup for AI provider and model selection
 async function firstRunSetup() {
@@ -520,50 +329,23 @@ async function firstRunSetup() {
   // Select model based on provider
   let model;
   if (provider === AI_PROVIDERS.OPENAI) {
-    const s = spinner();
-    s.start('Fetching available OpenAI models...');
-    const availableModels = await fetchOpenAIModels();
-    s.stop('Models fetched successfully');
-
     model = await select({
       message: 'Choose your OpenAI model:',
-      options: availableModels.map(m => ({
+      options: OPENAI_MODELS.map(m => ({
         value: m.value,
         label: m.label,
         hint: m.recommended ? 'Recommended' : undefined
       }))
     });
   } else if (provider === AI_PROVIDERS.GEMINI) {
-    const s = spinner();
-    s.start('Fetching available Gemini models...');
-    const availableModels = await fetchGeminiModels();
-    s.stop('Models fetched successfully');
-
     model = await select({
       message: 'Choose your Google Gemini model:',
-      options: availableModels.map(m => ({
+      options: GEMINI_MODELS.map(m => ({
         value: m.value,
         label: m.label,
         hint: m.recommended ? 'Recommended' : undefined
       }))
     });
-
-    // Handle custom model input
-    if (model === 'custom') {
-      const customModel = await text({
-        message: 'Enter your custom Gemini model name:',
-        validate: (value) => {
-          if (!value || value.trim() === '') return 'Model name is required';
-        }
-      });
-
-      if (isCancel(customModel)) {
-        cancel('Setup cancelled');
-        process.exit(0);
-      }
-
-      model = customModel;
-    }
   } else if (provider === AI_PROVIDERS.ANTHROPIC) {
     model = await select({
       message: 'Choose your Anthropic Claude model:',
@@ -797,16 +579,10 @@ async function showSettings() {
         let providerLabel;
 
         if (newProvider === AI_PROVIDERS.OPENAI) {
-          const s = spinner();
-          s.start('Fetching available OpenAI models...');
-          models = await fetchOpenAIModels();
-          s.stop('Models fetched successfully');
+          models = OPENAI_MODELS;
           providerLabel = 'OpenAI';
         } else if (newProvider === AI_PROVIDERS.GEMINI) {
-          const s = spinner();
-          s.start('Fetching available Gemini models...');
-          models = await fetchGeminiModels();
-          s.stop('Models fetched successfully');
+          models = GEMINI_MODELS;
           providerLabel = 'Google Gemini';
         } else if (newProvider === AI_PROVIDERS.ANTHROPIC) {
           models = ANTHROPIC_MODELS;
@@ -823,21 +599,7 @@ async function showSettings() {
         });
 
         if (!isCancel(newModel)) {
-          // Handle custom model for Gemini
-          if (newModel === 'custom' && newProvider === AI_PROVIDERS.GEMINI) {
-            const customModel = await text({
-              message: 'Enter your custom Gemini model name:',
-              validate: (value) => {
-                if (!value || value.trim() === '') return 'Model name is required';
-              }
-            });
-
-            if (!isCancel(customModel)) {
-              updatedPreferences.defaultModel = customModel;
-            }
-          } else {
-            updatedPreferences.defaultModel = newModel;
-          }
+          updatedPreferences.defaultModel = newModel;
         }
       }
       break;
@@ -847,16 +609,10 @@ async function showSettings() {
       let providerLabel2;
 
       if (preferences.aiProvider === AI_PROVIDERS.OPENAI) {
-        const s2 = spinner();
-        s2.start('Fetching available OpenAI models...');
-        models2 = await fetchOpenAIModels();
-        s2.stop('Models fetched successfully');
+        models2 = OPENAI_MODELS;
         providerLabel2 = 'OpenAI';
       } else if (preferences.aiProvider === AI_PROVIDERS.GEMINI) {
-        const s2 = spinner();
-        s2.start('Fetching available Gemini models...');
-        models2 = await fetchGeminiModels();
-        s2.stop('Models fetched successfully');
+        models2 = GEMINI_MODELS;
         providerLabel2 = 'Google Gemini';
       } else if (preferences.aiProvider === AI_PROVIDERS.ANTHROPIC) {
         models2 = ANTHROPIC_MODELS;
@@ -873,21 +629,7 @@ async function showSettings() {
       });
 
       if (!isCancel(newModel)) {
-        // Handle custom model for Gemini
-        if (newModel === 'custom' && preferences.aiProvider === AI_PROVIDERS.GEMINI) {
-          const customModel = await text({
-            message: 'Enter your custom Gemini model name:',
-            validate: (value) => {
-              if (!value || value.trim() === '') return 'Model name is required';
-            }
-          });
-
-          if (!isCancel(customModel)) {
-            updatedPreferences.defaultModel = customModel;
-          }
-        } else {
-          updatedPreferences.defaultModel = newModel;
-        }
+        updatedPreferences.defaultModel = newModel;
       }
       break;
 
