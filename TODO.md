@@ -16,15 +16,18 @@
 - **Status:** ✅ Completed - Ready to Merge
 
 ### Task 2: Simplify Model Selection (5 Models Per Provider)
-- [ ] Define hardcoded model lists for Anthropic
-- [ ] Define hardcoded model lists for Google Gemini
-- [ ] Define hardcoded model lists for OpenAI
-- [ ] Mark recommended model for each provider
-- [ ] Replace dynamic fetching with static lists
-- [ ] Update model selection UI
-- **GitHub Issue:** [To be created]
+- [x] Define hardcoded model lists for Anthropic (completed in Task 1)
+- [ ] Update hardcoded model list for Google Gemini (5 models)
+- [ ] Update hardcoded model list for OpenAI (5 models)
+- [ ] Remove fetchOpenAIModels() function
+- [ ] Remove fetchGeminiModels() function
+- [ ] Remove helper functions (isTextCompletionModel, getLatestModelVersions, etc)
+- [ ] Update firstRunSetup() to use hardcoded models
+- [ ] Update showSettings() to use hardcoded models
+- [ ] Test all 3 providers with new model lists
+- **GitHub Issue:** https://github.com/bvdr/BlueJay/issues/7
 - **Branch:** `feature/simplified-model-selection`
-- **Status:** Not Started
+- **Status:** In Progress
 
 ### Task 3: Add Password Masking for API Key Input
 - [ ] Implement secure input with masked characters (••••••)
