@@ -65,3 +65,6 @@ jspm_packages/
 # IDE files
 .idea/
 .vscode/
+
+# Claude Code documentation (keep local only)
+CLAUDE.md

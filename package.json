@@ -17,7 +17,14 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "node scripts/postinstall.js"
+    "postinstall": "node scripts/postinstall.js",
+    "dev": "node scripts/dev.js",
+    "dev:unlink": "npm unlink -g @bvdr/bluejay && echo 'Development symlink removed. Run npm install -g @bvdr/bluejay to restore production version.'",
+    "clean": "node scripts/clean.js",
+    "clean:prefs": "rm -f ~/.j/.j-preferences .j-preferences && echo 'Preferences cleaned'",
+    "clean:env": "rm -f ~/.j/.env && echo 'API keys cleaned'",
+    "test:local": "node index.js \"list files in current directory\"",
+    "validate": "node test-package.js"
   },
   "keywords": [
     "cli",
