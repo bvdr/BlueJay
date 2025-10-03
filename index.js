@@ -377,6 +377,7 @@ async function firstRunSetup() {
   await initAI(provider);
 
   outro(colorize.green('✅ Setup complete! You can now use BlueJay.'));
+  log.info(colorize.blue('💡 Try: j "list files in current directory"'));
   log.info(colorize.blue('💡 Use "j settings" to change your preferences anytime.'));
 
   return updatedPreferences;
