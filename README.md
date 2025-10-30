@@ -5,8 +5,7 @@
 
 A command-line tool that speeds up your development process by using AI to understand and execute your requests.
 
-https://github.com/user-attachments/assets/592e9400-a246-4388-9ca2-1eb109805764
-
+<img src="https://github.com/user-attachments/assets/371c2ece-e3e9-4e9f-ba7f-ac051d6a8245" alt="blue-jay" width="600">
 
 
 ## Features
