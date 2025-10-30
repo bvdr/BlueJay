@@ -5,6 +5,10 @@
 
 A command-line tool that speeds up your development process by using AI to understand and execute your requests.
 
+https://github.com/user-attachments/assets/592e9400-a246-4388-9ca2-1eb109805764
+
+
+
 ## Features
 
 - Natural language processing of your requests
