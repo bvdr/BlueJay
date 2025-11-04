@@ -23,6 +23,8 @@ let colorize;
 const { exec, spawn } = require('child_process');
 const { determineToolType, runTool, TOOLS } = require('./tools');
 const { checkForUpdates } = require('./utils/update-checker');
+const ContextManager = require('./utils/context-manager');
+const Logger = require('./utils/logger');
 
 // Setup colorize function (defined early for error handling)
 colorize = {
@@ -45,7 +47,17 @@ const DEFAULT_PREFERENCES = {
   colorOutput: true,
   saveCommandHistory: true,
   maxHistoryItems: 100,
-  debug: false
+  debug: false,
+  // Context settings
+  enableContextMemory: true,
+  contextScope: 'local', // 'local' (per folder) or 'global'
+  maxContextEntries: 5,
+  contextTTL: 30, // Minutes before auto-clear
+  captureCommandOutput: true,
+  maxOutputLength: 2000,
+  // Logging settings
+  enableLogging: true,
+  logRetentionDays: 30 // 0 = never delete
 };
 
 // AI Provider configurations
@@ -541,6 +553,153 @@ async function managePreferences() {
   return updatedPreferences;
 }
 
+// Context settings management
+async function manageContextSettings() {
+  intro(colorize.cyan('📝 Context & History Settings'));
+
+  while (true) {
+    const action = await select({
+      message: 'Configure context and logging:',
+      options: [
+        {
+          value: 'toggle-context',
+          label: `${preferences.enableContextMemory ? '✓' : '✗'} Enable Context Memory`
+        },
+        {
+          value: 'context-scope',
+          label: `Context Scope: ${preferences.contextScope} ${preferences.contextScope === 'local' ? '(per folder)' : '(global)'}`
+        },
+        {
+          value: 'context-ttl',
+          label: `Auto-clear after: ${preferences.contextTTL} minutes`
+        },
+        {
+          value: 'max-entries',
+          label: `Max context entries: ${preferences.maxContextEntries}`
+        },
+        {
+          value: 'toggle-output-capture',
+          label: `${preferences.captureCommandOutput ? '✓' : '✗'} Capture Command Output`
+        },
+        {
+          value: 'toggle-logging',
+          label: `${preferences.enableLogging ? '✓' : '✗'} Enable Permanent Logging`
+        },
+        {
+          value: 'log-retention',
+          label: `Log retention: ${preferences.logRetentionDays} days ${preferences.logRetentionDays === 0 ? '(never delete)' : ''}`
+        },
+        { value: 'back', label: '← Back to Settings' }
+      ]
+    });
+
+    if (isCancel(action)) {
+      outro(colorize.green('Context settings closed'));
+      return preferences;
+    }
+
+    if (action === 'back') {
+      outro(colorize.green('Context settings saved'));
+      return preferences;
+    }
+
+    const updatedPreferences = { ...preferences };
+
+    switch (action) {
+      case 'toggle-context':
+        updatedPreferences.enableContextMemory = !preferences.enableContextMemory;
+        log.info(colorize.cyan(`Context memory ${updatedPreferences.enableContextMemory ? 'enabled' : 'disabled'}`));
+        break;
+
+      case 'context-scope':
+        const scope = await select({
+          message: 'Choose context scope:',
+          options: [
+            { value: 'local', label: 'Local (per folder) - Context is specific to each directory' },
+            { value: 'global', label: 'Global - Context persists across all directories' }
+          ]
+        });
+
+        if (!isCancel(scope)) {
+          updatedPreferences.contextScope = scope;
+          log.info(colorize.cyan(`Context scope set to ${scope}`));
+        }
+        break;
+
+      case 'context-ttl':
+        const ttl = await text({
+          message: 'Auto-clear context after how many minutes? (0 = never)',
+          initialValue: String(preferences.contextTTL),
+          validate: (value) => {
+            const num = parseInt(value);
+            if (isNaN(num) || num < 0) {
+              return 'Please enter a valid number (0 or greater)';
+            }
+          }
+        });
+
+        if (!isCancel(ttl)) {
+          updatedPreferences.contextTTL = parseInt(ttl);
+          log.info(colorize.cyan(`Context TTL set to ${ttl} minutes`));
+        }
+        break;
+
+      case 'max-entries':
+        const maxEntries = await text({
+          message: 'Maximum context entries to keep:',
+          initialValue: String(preferences.maxContextEntries),
+          validate: (value) => {
+            const num = parseInt(value);
+            if (isNaN(num) || num < 1 || num > 20) {
+              return 'Please enter a number between 1 and 20';
+            }
+          }
+        });
+
+        if (!isCancel(maxEntries)) {
+          updatedPreferences.maxContextEntries = parseInt(maxEntries);
+          log.info(colorize.cyan(`Max context entries set to ${maxEntries}`));
+        }
+        break;
+
+      case 'toggle-output-capture':
+        updatedPreferences.captureCommandOutput = !preferences.captureCommandOutput;
+        log.info(colorize.cyan(`Output capture ${updatedPreferences.captureCommandOutput ? 'enabled' : 'disabled'}`));
+        break;
+
+      case 'toggle-logging':
+        updatedPreferences.enableLogging = !preferences.enableLogging;
+        log.info(colorize.cyan(`Logging ${updatedPreferences.enableLogging ? 'enabled' : 'disabled'}`));
+        break;
+
+      case 'log-retention':
+        const retention = await text({
+          message: 'Keep logs for how many days? (0 = never delete)',
+          initialValue: String(preferences.logRetentionDays),
+          validate: (value) => {
+            const num = parseInt(value);
+            if (isNaN(num) || num < 0) {
+              return 'Please enter a valid number (0 or greater)';
+            }
+          }
+        });
+
+        if (!isCancel(retention)) {
+          updatedPreferences.logRetentionDays = parseInt(retention);
+          log.info(colorize.cyan(`Log retention set to ${retention} days`));
+        }
+        break;
+    }
+
+    // Save updated preferences
+    if (JSON.stringify(updatedPreferences) !== JSON.stringify(preferences)) {
+      fs.writeFileSync(HOME_PREFERENCES_FILE_PATH, JSON.stringify(updatedPreferences, null, 2));
+      Object.assign(preferences, updatedPreferences);
+      log.success(colorize.green('Settings saved!'));
+    }
+  }
+}
+
 // Settings management
 async function showSettings() {
   while (true) {
@@ -553,6 +712,7 @@ async function showSettings() {
         { value: 'change-model', label: `Model: ${preferences.defaultModel || 'Not set'}` },
         { value: 'update-credentials', label: 'Update Credentials' },
         { value: 'preferences', label: 'Preferences' },
+        { value: 'context-settings', label: 'Context & History Settings' },
         { value: 'view-current', label: 'View Current Settings' },
         { value: 'exit', label: '← Exit Settings' }
       ]
@@ -669,6 +829,10 @@ async function showSettings() {
         updatedPreferences = await managePreferences();
         break;
 
+      case 'context-settings':
+        updatedPreferences = await manageContextSettings();
+        break;
+
       case 'view-current':
         log.info(colorize.blue('\n📋 Current Settings:'));
         log.info(colorize.cyan(`AI Provider: ${preferences.aiProvider || 'Not set'}`));
@@ -692,47 +856,67 @@ async function showSettings() {
 }
 
 // Ask AI if the input is a terminal command (works with both OpenAI and Gemini)
-async function isTerminalCommand(aiClient, userInput, provider, defaultModel) {
+async function isTerminalCommand(aiClient, userInput, provider, defaultModel, contextMessages = []) {
   try {
     const systemPrompt = 'You are a helpful assistant that runs in a terminal on a MAC OS/LINUX. Your primary goal is to interpret user input as terminal commands whenever possible. Be very liberal in your interpretation - if there is any way the user\'s request could be fulfilled with a terminal command, provide that command. Even if the request is ambiguous or could be interpreted in multiple ways, prefer to respond with a command rather than "NOT_A_COMMAND". If you provide a command, respond ONLY with the command to run, with no additional text or explanation. Only respond with "NOT_A_COMMAND" if the user\'s input is clearly not related to any possible terminal operation or file system task.';
 
     let content;
 
     if (provider === AI_PROVIDERS.OPENAI) {
+      // Build messages array with context
+      const messages = [
+        {
+          role: 'system',
+          content: systemPrompt
+        },
+        ...contextMessages,
+        {
+          role: 'user',
+          content: userInput
+        }
+      ];
+
       const response = await aiClient.chat.completions.create({
         model: defaultModel,
-        messages: [
-          {
-            role: 'system',
-            content: systemPrompt
-          },
-          {
-            role: 'user',
-            content: userInput
-          }
-        ],
+        messages,
         temperature: 0.2,
       });
       content = response.choices[0].message.content;
     } else if (provider === AI_PROVIDERS.GEMINI) {
-      // Ensure we have a valid model name
+      // Gemini doesn't support message arrays in the same way, so build a text prompt with context
       const modelName = defaultModel || 'gemini-2.5-flash';
       const model = aiClient.getGenerativeModel({ model: modelName });
-      const prompt = `${systemPrompt}\n\nUser: ${userInput}`;
+
+      let prompt = systemPrompt;
+
+      // Add context as conversation history
+      if (contextMessages.length > 0) {
+        prompt += '\n\nPrevious conversation:';
+        contextMessages.forEach(msg => {
+          prompt += `\n${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`;
+        });
+      }
+
+      prompt += `\n\nUser: ${userInput}`;
+
       const result = await model.generateContent(prompt);
       const response = await result.response;
       content = response.text();
     } else if (provider === AI_PROVIDERS.ANTHROPIC) {
+      // Build messages array with context
+      const messages = [
+        ...contextMessages,
+        {
+          role: 'user',
+          content: userInput
+        }
+      ];
+
       const response = await aiClient.messages.create({
         model: defaultModel,
         max_tokens: 1024,
         system: systemPrompt,
-        messages: [
-          {
-            role: 'user',
-            content: userInput
-          }
-        ],
+        messages,
         temperature: 0.2,
       });
       content = response.content[0].text;
@@ -849,8 +1033,8 @@ function executeCommand(command) {
     const spawnOptions = {
       shell: true,
       // For interactive commands: inherit all stdio to allow user interaction
-      // For non-interactive commands: only inherit stderr, capture stdout
-      stdio: interactive ? 'inherit' : ['inherit', 'pipe', 'inherit']
+      // For non-interactive commands: capture both stdout and stderr
+      stdio: interactive ? 'inherit' : ['inherit', 'pipe', 'pipe']
     };
 
     // Use debug log wrapper function
@@ -859,28 +1043,57 @@ function executeCommand(command) {
     // Use spawn for all commands with appropriate configuration
     const childProcess = spawn(cmd, args, spawnOptions);
 
-    // For non-interactive commands, we need to capture stdout
+    // Capture stdout and stderr for non-interactive commands
     let stdout = '';
-    if (!interactive && childProcess.stdout) {
-      childProcess.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
+    let stderr = '';
+
+    if (!interactive) {
+      if (childProcess.stdout) {
+        childProcess.stdout.on('data', (data) => {
+          const output = data.toString();
+          stdout += output;
+          // Also print to user in real-time
+          process.stdout.write(output);
+        });
+      }
+
+      if (childProcess.stderr) {
+        childProcess.stderr.on('data', (data) => {
+          const output = data.toString();
+          stderr += output;
+          // Also print to user in real-time
+          process.stderr.write(output);
+        });
+      }
     }
 
     childProcess.on('close', (code) => {
-      if (code === 0) {
-        if (interactive) {
-          resolve('Interactive command completed successfully');
-        } else {
-          resolve(stdout);
-        }
+      if (interactive) {
+        // For interactive commands, return minimal info
+        resolve({
+          output: null,
+          error: null,
+          exitCode: code,
+          interactive: true
+        });
       } else {
-        reject({ code, message: `Command exited with code ${code}` });
+        // For non-interactive commands, return captured output
+        resolve({
+          output: stdout.trim(),
+          error: stderr.trim() || null,
+          exitCode: code,
+          interactive: false
+        });
       }
     });
 
     childProcess.on('error', (error) => {
-      reject({ code: 1, message: `Error: ${error.message}` });
+      reject({
+        output: null,
+        error: error.message,
+        exitCode: 1,
+        interactive: false
+      });
     });
   });
 }
@@ -989,6 +1202,9 @@ function showHelp() {
 ${colorize.cyan('USAGE')}
   j "your natural language request"
   j settings              Configure AI provider and preferences
+  j show-context          View current conversation context
+  j clear-context         Clear conversation history
+  j show-logs             View today's command logs
   j --help | -h | help    Show this help screen
 
 ${colorize.cyan('EXAMPLES')}
@@ -997,6 +1213,11 @@ ${colorize.cyan('EXAMPLES')}
   j "show system information"
   j "create a new directory called projects"
   j "search for 'TODO' in all files"
+
+${colorize.cyan('CONTEXT MEMORY')}
+  BlueJay remembers previous commands and their outputs in the same folder.
+  Use follow-up requests like "make it admin" or "fix that error".
+  Context auto-clears after 30 minutes (configurable in settings).
 
 ${colorize.cyan('CONFIGURATION')}`,
     'Help'
@@ -1029,6 +1250,8 @@ ${colorize.cyan('SETTINGS MANAGEMENT')}
   • Update API keys
   • Toggle command confirmation
   • Enable/disable colored output
+  • Configure context memory (scope, TTL, max entries)
+  • Configure logging and history retention
   • Configure debug mode`,
     'Resources'
   );
@@ -1074,6 +1297,32 @@ async function main() {
       return;
     }
 
+    // Check for context commands
+    if (userInput === 'show-context' || userInput === '--show-context') {
+      const contextManager = new ContextManager(preferences);
+      const formattedContext = contextManager.getFormattedContext();
+      console.log('');
+      console.log(colorize.cyan('=== Current Context ==='));
+      console.log(formattedContext);
+      return;
+    }
+
+    if (userInput === 'clear-context' || userInput === '--clear-context') {
+      const contextManager = new ContextManager(preferences);
+      contextManager.clearContext();
+      log.success(colorize.green('Context cleared successfully'));
+      return;
+    }
+
+    if (userInput === 'show-logs' || userInput === '--show-logs') {
+      const logger = new Logger(preferences);
+      const formattedLogs = logger.getFormattedLogs();
+      console.log('');
+      console.log(colorize.cyan('=== Today\'s Logs ==='));
+      console.log(formattedLogs);
+      return;
+    }
+
     if (!userInput) {
       showEmptyCommandHelp();
       return;
@@ -1107,14 +1356,34 @@ async function main() {
 
     debugLog(`Determined tool type: ${toolType}`, 'blue');
 
+    // Initialize context manager and logger
+    const contextManager = new ContextManager(currentPreferences);
+    const logger = new Logger(currentPreferences);
+
+    // Load existing context if enabled
+    const contextMessages = currentPreferences.enableContextMemory
+      ? contextManager.getMessagesForAI()
+      : [];
+
     // Run the appropriate tool
     if (toolType === TOOLS.TERMINAL) {
       // For terminal commands, we still need to get the exact command
-      const { isCommand, command } = await isTerminalCommand(aiClient, userInput, currentPreferences.aiProvider, currentPreferences.defaultModel);
+      const { isCommand, command } = await isTerminalCommand(
+        aiClient,
+        userInput,
+        currentPreferences.aiProvider,
+        currentPreferences.defaultModel,
+        contextMessages
+      );
 
       if (isCommand && command) {
         log.step(colorize.green('I think you want to run this command:'));
         log.info(colorize.cyan(command));
+
+        // Add to context before confirmation
+        if (currentPreferences.enableContextMemory) {
+          contextManager.addInteraction(userInput, command);
+        }
 
         let shouldExecute = true;
 
@@ -1135,25 +1404,61 @@ async function main() {
 
         if (shouldExecute) {
           try {
-            const output = await executeCommand(command);
+            const result = await executeCommand(command);
+
+            // Update context with execution results
+            if (currentPreferences.enableContextMemory) {
+              contextManager.updateLastInteraction({
+                executed: true,
+                output: result.output,
+                error: result.error,
+                exitCode: result.exitCode
+              });
+            }
+
+            // Log to permanent file
+            logger.log({
+              userInput,
+              command,
+              executed: true,
+              result
+            });
 
             // Add command to shell history after successful execution
             addToShellHistory(command);
 
-            // For interactive commands, the output is just a success message
-            // For non-interactive commands, show the actual output
-            if (command && isInteractiveCommand(command)) {
+            // Display results to user
+            if (result.interactive) {
               // Use debug log wrapper function for interactive command completion
               debugLog(`Interactive command "${command}" completed.`, 'green')
             } else {
-              log.success(colorize.green('Command executed successfully:'));
-              log.info(output);
+              if (result.exitCode === 0) {
+                log.success(colorize.green('Command executed successfully'));
+                // Output was already printed in real-time, no need to print again
+              } else {
+                log.warn(colorize.yellow(`Command exited with code ${result.exitCode}`));
+              }
             }
           } catch (error) {
-            log.error(colorize.red('Failed to execute command:'), error.message);
+            // Log error
+            logger.log({
+              userInput,
+              command,
+              executed: true,
+              error: error.error || error.message
+            });
+
+            log.error(colorize.red('Failed to execute command:'), error.error || error.message);
           }
         } else {
           log.warn(colorize.yellow('Command execution cancelled.'));
+
+          // Log the cancellation
+          logger.log({
+            userInput,
+            command,
+            executed: false
+          });
         }
       } else {
         log.warn(colorize.yellow("I couldn't determine the exact command to run."));
